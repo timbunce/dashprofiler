@@ -3,7 +3,7 @@ package DashProfiler;
 use strict;
 use warnings;
 
-our $VERSION = sprintf("1.%06d", q$Revision$ =~ /(\d+)/o);
+our $VERSION = "1.01";
 
 =head1 NAME
 
