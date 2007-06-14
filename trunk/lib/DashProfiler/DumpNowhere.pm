@@ -8,7 +8,7 @@ use base qw(DBI::ProfileDumper);
 
 
 sub flush_to_disk {
-    return undef;
+    return;
 }
 
 1;
