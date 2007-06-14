@@ -10,10 +10,12 @@ This is currently viewed as an internal class. The interface may change.
 
 =cut
 
+use strict;
+
+our $VERSION = sprintf("1.%06d", q$Revision$ =~ /(\d+)/o);
 
 use DBI 1.57 qw(dbi_time);
 use DBI::Profile;
-use strict;
 use Carp;
 
 use Hash::Util qw(lock_keys);
@@ -29,9 +31,10 @@ sub new {
     my $self = bless {
         profile_name         => $profile_name,
         in_use               => 0,
+        in_use_warning_given => 0,
         disabled             => $args_ref->{disabled},
         sample_class         => $args_ref->{sample_class} || 'DashProfiler::Sample',
-        dbi_profile_class    => $args_ref->{dbi_profile_class} || 'DBI::ProfileDumper::Apache',
+        dbi_profile_class    => $args_ref->{dbi_profile_class} || 'DBI::Profile',
         dbi_handles          => undef,
         exclusive_sampler    => undef,
 
@@ -40,10 +43,10 @@ sub new {
         spool_directory      => $args_ref->{spool_directory} || '/tmp',
         granularity          => $args_ref->{granularity}     || 30,
 
-        # for start_p
-        period_accumulated   => 0,
+        # for start_period
         period_start_time    => $time,
-        period_summary_h       => undef,
+        period_accumulated   => 0,
+        period_summary_h     => undef,
     } => $class;
     $self->{flush_due_at_time} = $time + $self->{flush_interval};
 
@@ -71,7 +74,7 @@ sub new {
 sub attach_dbi_profile {
     my ($self, $dbi_profile, $name, $weakly) = @_;
     # wrap DBI::Profile object/spec with a DBI handle
-    my $dbh = DBI->connect("dbi:NullP:", "", "", {
+    my $dbh = DBI->connect("dbi:DashProfiler:", "", "", {
         Profile => $dbi_profile,
         RaiseError => 1, PrintError => 1, TraceLevel => 0,
     });
@@ -117,7 +120,9 @@ sub _mk_dbi_profile {
 sub get_dbi_profile {
     my ($self, $name) = @_;
     my $dbi_handles = shift->{dbi_handles} or return;
-    return $dbi_handles->{ $name || 'main' }{Profile};
+    # we take care to avoid auto-viv here
+    my $dbh = $dbi_handles->{ $name || 'main' } or return;
+    return $dbh->{Profile};
 }
 
 sub profile_as_text {
@@ -217,6 +222,49 @@ sub _load_class {
     (my $file = $class) =~ s/::/\//g;
     require "$file.pm";
 }
+
+
+
+
+# --- ultra small 'null' driver for DBI ---
+#     This is really just for the custom dbh DESTROY method below
+
+{
+    package DBD::DashProfiler;
+    our $drh;       # holds driver handle once initialised
+    sub driver{
+        return $drh if $drh;
+        my ($class, $attr) = @_;
+        return DBI::_new_drh($class."::dr", {
+            Name => 'DashProfiler', Version => $DashProfiler::Core::VERSION,
+        });
+    }
+    sub CLONE { undef $drh }
+}
+{   package DBD::DashProfiler::dr;
+    our $imp_data_size = 0;
+    sub DESTROY { undef }
+}
+{   package DBD::DashProfiler::db;
+    our $imp_data_size = 0;
+    use strict;
+    sub STORE {
+        my ($dbh, $attrib, $value) = @_;
+        $value = ($value) ? -901 : -900 if $attrib eq 'AutoCommit';
+        return $dbh->SUPER::STORE($attrib, $value);
+    }
+    sub DESTROY {
+        my $dbh = shift;
+        $dbh->{Profile} = undef; # don't profile the DESTROY
+        return $dbh->SUPER::DESTROY;
+    }
+}
+{   package DBD::DashProfiler::st;
+    our $imp_data_size = 0;
+}
+# fake the %INC entry so DBI install_driver won't try to load it
+BEGIN { $INC{"DBD/DashProfiler.pm"} = __FILE__ }
+
 
 
 1;

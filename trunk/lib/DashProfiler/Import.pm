@@ -2,6 +2,8 @@ package DashProfiler::Import;
 
 use strict;
 
+our $VERSION = sprintf("1.%06d", q$Revision$ =~ /(\d+)/o);
+
 use base qw(Exporter);
 
 use Carp;

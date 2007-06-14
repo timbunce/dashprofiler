@@ -2,7 +2,8 @@ package DashProfiler::DumpToSyslog;
 
 use strict;
 
-our $VERSION = sprintf("2.%06d", q$Revision$ =~ /(\d+)/o);
+our $VERSION = sprintf("1.%06d", q$Revision$ =~ /(\d+)/o);
+
 
 use base qw(DBI::ProfileDumper)
 
