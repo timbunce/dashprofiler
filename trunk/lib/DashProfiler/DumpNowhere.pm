@@ -2,7 +2,7 @@ package DashProfiler::DumpNowhere;
 
 use strict;
 
-our $VERSION = sprintf("2.%06d", q$Revision: 9618 $ =~ /(\d+)/o);
+our $VERSION = sprintf("2.%06d", q$Revision$ =~ /(\d+)/o);
 
 use base qw(DBI::ProfileDumper);
 
