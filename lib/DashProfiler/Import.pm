@@ -28,7 +28,7 @@ sub import {
 
         #warn "$pkg $var_name ($profile_name) => $context1 $profiler";
         {
-            no strict 'refs';
+            no strict 'refs'; ## no critic
             # if profile has been disabled then export a dummy sub instead
             *{"${pkg}::$var_name"} = $profiler || sub { undef };
             # also export a constant sub that can be used to optimize away the

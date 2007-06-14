@@ -192,7 +192,7 @@ sub end_sample_period {
 sub prepare {
     my ($self, $context1, $context2, %meta) = @_;
     # return undef if profile exists but is disabled
-    return undef if $self->{disabled};
+    return undef if $self->{disabled}; ## no critic
 
     # return a light wrapper around the profile, containing the context1
     my $sample_class = $self->{sample_class};
@@ -211,6 +211,7 @@ sub prepare {
 
 sub _load_class {
     my ($class) = @_;
+    ## no critic
     no strict 'refs';
     return 1 if keys %{"$class\::"}; # already loaded
     (my $file = $class) =~ s/::/\//g;

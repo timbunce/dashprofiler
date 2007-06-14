@@ -10,11 +10,11 @@ use Carp;
 sub new {
     my ($class, $meta, $context2, $start_time) = @_;
     my $profile_ref = $meta->{_profile_ref};
-    return undef if $profile_ref->{disabled};
+    return if $profile_ref->{disabled};
     if ($profile_ref->{in_use}++) {
         Carp::cluck("$class $profile_ref->{profile_name} already active in outer scope")
             unless $profile_ref->{in_use_warning_given}++; # warn once
-        return undef; # don't double count
+        return; # don't double count
     }
     # to help debug nested profile samples you can uncomment this
     # and remove the ++ from the if() above and tweak the cluck message

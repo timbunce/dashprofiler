@@ -10,7 +10,7 @@ use base qw(DBI::ProfileDumper)
 die "not implemented yet";
 
 sub flush_to_disk {
-    return undef;
+    return;
 }
 
 1;

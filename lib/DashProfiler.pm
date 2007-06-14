@@ -1,5 +1,10 @@
 package DashProfiler;
 
+use strict;
+use warnings;
+
+our $VERSION = sprintf("1.%06d", q$Revision: 9618 $ =~ /(\d+)/o);
+
 =head1 NAME
 
 DashProfiler - collect call count and timing data aggregated by context
@@ -42,9 +47,6 @@ message that "it's fast" is)
 
 =cut
 
-use strict;
-use warnings;
-
 use Carp;
 use Data::Dumper;
 
@@ -75,7 +77,7 @@ sub prepare {
         carp "No $class profiler called '$profile_name' exists"
             unless defined $profile_ref;
         $profiles{$profile_name} = 0; # only warn once
-        return undef;
+        return;
     };
     return $profile_ref->prepare(@_);
 }
