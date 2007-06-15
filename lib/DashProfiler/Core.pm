@@ -151,12 +151,12 @@ sub reset_profile_data {
 
 sub flush {
     my $self = shift;
+    if (my $flush_hook = $_->{flush_hook}) {
+        # if flush_hook returns true then don't call flush_to_disk
+        return if $flush_hook->($self);
+    }
     for (values %{ $self->{dbi_handles_all} }) {
         next unless $_ && $_->{Profile};
-        if (my $flush_hook = $_->{flush_hook}) {
-            # if flush_hook returns true then don't call flush_to_disk
-            next if $flush_hook->($_, $self);
-        }
         $_->{Profile}->flush_to_disk;
     }
     return;
