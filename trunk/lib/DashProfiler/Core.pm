@@ -41,6 +41,7 @@ sub new {
 
         flush_interval       => $args_ref->{flush_interval}  || 60,
         flush_due_at_time    => undef,
+        flush_hook           => $args_ref->{flush_hook} || undef,
         spool_directory      => $args_ref->{spool_directory} || '/tmp',
         granularity          => $args_ref->{granularity}     || 30,
 
@@ -149,8 +150,13 @@ sub reset_profile_data {
 }
 
 sub flush {
-    for (values %{shift->{dbi_handles_all}}) {
+    my $self = shift;
+    for (values %{ $self->{dbi_handles_all} }) {
         next unless $_ && $_->{Profile};
+        if (my $flush_hook = $_->{flush_hook}) {
+            # if flush_hook returns true then don't call flush_to_disk
+            next if $flush_hook->($_, $self);
+        }
         $_->{Profile}->flush_to_disk;
     }
     return;
