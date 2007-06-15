@@ -85,9 +85,9 @@ sub DESTROY {
     ) if 0; # enable if needed for debugging
 
     # if you get an sv_dump ("SV = RV(0x181aa80) at 0x1889a80 ...") to stderr
-    # it probably means %$dbi_handles contains a plain hash ref not a dbh
-    for (values %{$profile_ref->{dbi_handles}}) {
-        next unless defined;
+    # it probably means %$dbi_handles_active contains a plain hash ref not a dbh
+    for (values %{$profile_ref->{dbi_handles_active}}) {
+        next unless defined; # skip any dead weakrefs
         dbi_profile($_, $meta->{_context1}, $context2, $start_time, $end_time);
     }
 

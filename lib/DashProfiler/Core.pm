@@ -35,7 +35,8 @@ sub new {
         disabled             => $args_ref->{disabled},
         sample_class         => $args_ref->{sample_class} || 'DashProfiler::Sample',
         dbi_profile_class    => $args_ref->{dbi_profile_class} || 'DBI::Profile',
-        dbi_handles          => undef,
+        dbi_handles_all      => {},
+        dbi_handles_active   => {},
         exclusive_sampler    => undef,
 
         flush_interval       => $args_ref->{flush_interval}  || 60,
@@ -46,7 +47,6 @@ sub new {
         # for start_period
         period_start_time    => $time,
         period_accumulated   => 0,
-        period_summary_h     => undef,
     } => $class;
     $self->{flush_due_at_time} = $time + $self->{flush_interval};
 
@@ -64,7 +64,8 @@ sub new {
     if (my $period_summary = $args_ref->{period_summary}) {
         my $dbi_profile = $self->_mk_dbi_profile("DashProfiler::DumpNowhere", 0);
         my $dbh = $self->attach_dbi_profile( $dbi_profile, "period_summary", 0 );
-        $self->{period_summary_h} = $dbh;
+        $self->{dbi_handles_all}{period_summary} = $dbh;
+        $self->{dbi_handles_active}{period_summary} = $dbh;
     }
 
     return $self;
@@ -80,11 +81,12 @@ sub attach_dbi_profile {
     });
     $dbh = tied %$dbh; # switch to inner handle
     $dbh->{Profile}->empty; # discard FETCH&STOREs etc due to connect()
-    my $handles = $self->{dbi_handles} ||= {};
-    # clean out any dead weakrefs
-    defined $handles->{$_} or delete $handles->{$_} for keys %$handles;
-    $handles->{$name} = $dbh;
-    weaken $handles->{$name} if $weakly;
+    for my $handles ($self->{dbi_handles_all}, $self->{dbi_handles_active}) {
+        # clean out any dead weakrefs
+        defined $handles->{$_} or delete $handles->{$_} for keys %$handles;
+        $handles->{$name} = $dbh;
+        weaken $handles->{$name} if $weakly;
+    }
     return $dbh;
 }
 
@@ -119,7 +121,7 @@ sub _mk_dbi_profile {
 
 sub get_dbi_profile {
     my ($self, $name) = @_;
-    my $dbi_handles = shift->{dbi_handles} or return;
+    my $dbi_handles = $self->{dbi_handles_all} or return;
     # we take care to avoid auto-viv here
     my $dbh = $dbi_handles->{ $name || 'main' } or return;
     return $dbh->{Profile};
@@ -139,7 +141,7 @@ sub profile_as_text {
 
 
 sub reset_profile_data {
-    for (values %{shift->{dbi_handles}}) {
+    for (values %{shift->{dbi_handles_all}}) {
         next unless $_ && $_->{Profile};
         $_->{Profile}->empty;
     }
@@ -147,7 +149,7 @@ sub reset_profile_data {
 }
 
 sub flush {
-    for (values %{shift->{dbi_handles}}) {
+    for (values %{shift->{dbi_handles_all}}) {
         next unless $_ && $_->{Profile};
         $_->{Profile}->flush_to_disk;
     }
@@ -166,9 +168,9 @@ sub start_sample_period {
     my $self = shift;
     # marks the start of a series of related samples, e.g, within one http request
     # see end_sample_period()
-    if (my $period_summary_h = $self->{period_summary_h}) {
+    if (my $period_summary_h = $self->{dbi_handles_all}{period_summary}) {
         # ensure period_summary_h dbi profile will receive samples
-        $self->{dbi_handles}{period_summary} = $period_summary_h;
+        $self->{dbi_handles_active}{period_summary} = $period_summary_h;
         $period_summary_h->{Profile}->empty; # start period empty
     }
     $self->{period_accumulated} = 0;
@@ -186,10 +188,8 @@ sub end_sample_period {
         $profiler->(undef, $self->{period_start_time} + $self->{period_accumulated});
         # gets destroyed, and so counted, immediately.
     }
-    if (my $period_summary_h = $self->{period_summary_h}) {
-        # disconnect period_summary_h dbi profile from receiving any more samples
-        $self->{dbi_handles}{period_summary} = undef;
-    }
+    # disconnect period_summary dbi profile from receiving any more samples
+    delete $self->{dbi_handles_active}{period_summary};
     return;
 }
 
