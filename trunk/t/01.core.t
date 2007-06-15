@@ -33,7 +33,7 @@ is $dp1->profile_as_text(), "";
 undef $ps1;
 
 like $dp1->profile_as_text(),
-    qr/^DashProfiler::Core dp1>\d+>c1>c2: dur=0.\d+s count=1 \(max=0.\d+ avg=0.\d+\)\n/;
+    qr/^DashProfiler::Core dp1>\d+>c1>c2: dur=0.\d+s count=1 \(max=0.\d+ avg=0.\d+\)\n$/;
 
 $dp1->reset_profile_data;
 
@@ -64,7 +64,7 @@ my $sampler2 = $dp1->prepare("c1a", "c2a");
 my $ps2 = $sampler2->(); # no context2
 undef $ps2;
 like $dp1->profile_as_text(),
-    qr/^DashProfiler::Core dp1>\d+>c1a>c2a: dur=0.\d+s count=1 \(max=0.\d+ avg=0.\d+\)\n/,
+    qr/^DashProfiler::Core dp1>\d+>c1a>c2a: dur=0.\d+s count=1 \(max=0.\d+ avg=0.\d+\)\n$/,
     'should include c2a';
 
 
