@@ -131,13 +131,12 @@ sub get_dbi_profile {
 sub profile_as_text {
     my $self = shift;
     my $name = shift;
+    my %args = %{ shift || {} };
     my $dbi_profile = $self->get_dbi_profile($name) or return;
-    my $tag = ref($self)." $self->{profile_name}";
-    return $dbi_profile->as_text({
-        path => [ $tag ],
-        separator => ">",
-        format => '%1$s: dur=%11$fs count=%10$d (max=%14$f avg=%2$f)'."\n",
-    });
+    $args{path}   ||= [ $self->{profile_name} ];
+    $args{format} ||= '%1$s: dur=%11$f count=%10$d (max=%14$f avg=%2$f)'."\n";
+    $args{separator} ||= ">";
+    return $dbi_profile->as_text(\%args);
 }
 
 
