@@ -1,5 +1,11 @@
-Revision history for DashProfiler
+=head1 NAME
 
-0.0.1  Thu Jun 14 14:39:43 2007
-       Initial release.
+Changes - Revision history for DashProfiler
 
+=head1 RELEASES
+
+=head2 DashProfiler 1.02 - Jun 21 2007
+
+  First full release (1.01 was incomplete)
+
+=cut
