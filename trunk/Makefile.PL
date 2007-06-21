@@ -13,7 +13,11 @@ WriteMakefile(
         'Test::More'    => 0,
         DBI             => 1.57,
     },
-    dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
+    dist  => {
+        DIST_DEFAULT=> 'clean distcheck disttest tardist',
+        PREOP => '$(MAKE) -f Makefile.old distdir',
+        COMPRESS => 'gzip -v9', SUFFIX => 'gz',
+    },
     clean               => { FILES => 'DashProfiler-[0-9]*' },
 );
 
