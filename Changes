@@ -4,7 +4,13 @@ Changes - Revision history for DashProfiler
 
 =head1 RELEASES
 
-=head2 DashProfiler 1.02 - Jun 21 2007
+=head2 DashProfiler 1.03 - r15 - Jun 23 2007
+
+  Fix flush_hook attribute in flush(),
+  Make Hash::Util optional.
+  Make Perl::Critic optional.
+
+=head2 DashProfiler 1.02 - r12 - Jun 21 2007
 
   First full release (1.01 was incomplete)
 
