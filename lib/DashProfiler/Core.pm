@@ -18,8 +18,19 @@ use DBI 1.57 qw(dbi_time);
 use DBI::Profile;
 use Carp;
 
-use Hash::Util qw(lock_keys);
 use Scalar::Util qw(weaken);
+
+BEGIN {
+    # load Hash::Util for lock_keys()
+    # if Hash::Util isn't available then install a stub for lock_keys()
+    eval {
+        require Hash::Util;
+        Hash::Util->import('lock_keys');
+    };
+    die @$ if $@ && $@ =~ /^Can't locate Hash\/Util\.pm/;
+    *lock_keys = sub { } if not defined &lock_keys;
+}
+
 
 sub new {
     my ($class, $profile_name, $args_ref) = @_;
@@ -150,7 +161,7 @@ sub reset_profile_data {
 
 sub flush {
     my $self = shift;
-    if (my $flush_hook = $_->{flush_hook}) {
+    if (my $flush_hook = $self->{flush_hook}) {
         # if flush_hook returns true then don't call flush_to_disk
         return if $flush_hook->($self);
     }
@@ -182,6 +193,7 @@ sub start_sample_period {
     $self->{period_start_time}  = dbi_time();
     return;
 }
+
 
 sub end_sample_period {
     my $self = shift;
