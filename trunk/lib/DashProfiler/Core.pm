@@ -27,7 +27,7 @@ BEGIN {
         require Hash::Util;
         Hash::Util->import('lock_keys');
     };
-    die @$ if $@ && $@ =~ /^Can't locate Hash\/Util\.pm/;
+    die @$ if $@ && $@ !~ /^Can't locate Hash\/Util/;
     *lock_keys = sub { } if not defined &lock_keys;
 }
 
