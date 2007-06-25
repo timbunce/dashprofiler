@@ -61,6 +61,19 @@ use DashProfiler::Core;
 
 my %profiles;
 
+=head2 add_profile
+
+  DashProfiler->add_profile( 'my_profile_name' );
+  DashProfiler->add_profile( my_profile_name => { ... } );
+  $stash = DashProfiler->add_stash( my_profile_name => { ... } );
+
+Calls DashProfiler::Core->new to create a new stash and then caches it, using
+the name as the key, so it can be refered to by name.
+
+See L<DashProfiler::Core> for details of the arguments.
+
+=cut
+
 sub add_profile {
     my $class = shift;
     croak "A profile called '$_[0]' already exists" if $profiles{$_[0]};
@@ -68,6 +81,16 @@ sub add_profile {
     $profiles{ $self->{profile_name} } = $self;
     return $self;
 }
+
+=head2 prepare
+
+    $sampler = DashProfiler->prepare($profile_name, ...);
+
+Calls prepare(...) on the profile named by $profile_name.
+
+If no profile with that name exists then it will warn, but only once per name.
+
+=cut
 
 sub prepare {
     my $class = shift;

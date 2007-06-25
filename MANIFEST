@@ -2,7 +2,6 @@ Changes
 lib/DashProfiler.pm
 lib/DashProfiler/Core.pm
 lib/DashProfiler/DumpNowhere.pm
-lib/DashProfiler/DumpToSyslog.pm
 lib/DashProfiler/Import.pm
 lib/DashProfiler/Sample.pm
 lib/DashProfiler/Util.pm

@@ -10,6 +10,35 @@ use Carp;
 
 use DashProfiler;
 
+=head1 NAME
+
+DashProfiler::Import - Import curried DashProfiler sampler function at compile-time
+
+=head1 SYNOPSIS
+
+  use DashProfiler::Import foo_profiler => [ "bar" ];
+
+  ...
+  my $sample = foo_profiler("baz");
+
+=head1 DESCRIPTION
+
+The example above imports a function called foo_profiler() that is a sample
+factory for the stash called "foo", pre-configured ("curried") to use the value
+"bar" for context1.
+
+It also imports a function called foo_profiler_enabled() that's a constant,
+returning false if the stash was disabled at the time. This is useful when
+profiling very time-senstive code and you want the profiling to have zero
+overhead when not in use. For example:
+
+    $sample = foo_profiler("baz") if foo_profiler_enabled();
+
+Because the C<*_profiler_enabled> function is a constant, the perl compiler
+will completely remove the code if the corresponding stash is disabled.
+
+=cut
+
 sub import {
     my $class = shift;
     my $pkg = caller;
