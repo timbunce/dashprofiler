@@ -4,6 +4,12 @@ Changes - Revision history for DashProfiler
 
 =head1 RELEASES
 
+=head2 DashProfiler 1.04 - rXX - 2007
+
+  Require 5.008, just due to sprintf '%$N' usage in tests.
+  Add :optional to DashProfiler::Import
+  Make Scalar::Util::weaken optional.
+
 =head2 DashProfiler 1.03 - r15 - Jun 23 2007
 
   Fix flush_hook attribute in flush(),

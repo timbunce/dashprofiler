@@ -18,8 +18,6 @@ use DBI 1.57 qw(dbi_time);
 use DBI::Profile;
 use Carp;
 
-use Scalar::Util qw(weaken);
-
 BEGIN {
     # load Hash::Util for lock_keys()
     # if Hash::Util isn't available then install a stub for lock_keys()
@@ -30,6 +28,16 @@ BEGIN {
     die @$ if $@ && $@ !~ /^Can't locate Hash\/Util/;
     *lock_keys = sub { } if not defined &lock_keys;
 }
+
+# check for weaken support, used by ChildHandles
+my $HAS_WEAKEN = eval {
+    require Scalar::Util;
+    # this will croak() if this Scalar::Util doesn't have a working weaken().
+    Scalar::Util::weaken( my $test = [] );
+    1;
+};
+*weaken = sub { croak "Can't weaken without Scalar::Util::weaken" }
+    unless $HAS_WEAKEN;
 
 
 sub new {
@@ -97,7 +105,7 @@ sub attach_dbi_profile {
         # clean out any dead weakrefs
         defined $handles->{$_} or delete $handles->{$_} for keys %$handles;
         $handles->{$name} = $dbh;
-        weaken $handles->{$name} if $weakly;
+        weaken($handles->{$name}) if $weakly;
     }
     return $dbh;
 }
