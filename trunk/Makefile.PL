@@ -3,6 +3,8 @@ use strict;
 use warnings;
 use ExtUtils::MakeMaker;
 
+require 5.008; # just due to sprintf '%$N' usage in tests
+
 WriteMakefile(
     NAME                => 'DashProfiler',
     AUTHOR              => 'Tim Bunce <Tim.Bunce@pobox.com>',
