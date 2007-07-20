@@ -22,6 +22,11 @@ our $VERSION = sprintf("1.%06d", q$Revision$ =~ /(\d+)/o);
 use DBI::Profile qw(dbi_profile dbi_time);
 use Carp;
 
+BEGIN {
+    # use env var to control debugging at compile-time
+    my $debug = $ENV{DASHPROFILER_SAMPLE_DEBUG} || $ENV{DASHPROFILER_DEBUG} || 0;
+    eval "sub DEBUG () { $debug }; 1;" or die; ## no critic
+}
 
 
 =head2 new
@@ -44,11 +49,11 @@ sub new {
     }
     # to help debug nested profile samples you can uncomment this
     # and remove the ++ from the if() above and tweak the cluck message
-    # $profile_ref->{in_use} = Carp::longmess("");
+    #$profile_ref->{in_use} = Carp::longmess("");
     return bless [
         $meta,
-        $start_time || dbi_time(),
         $context2   || $meta->{_context2},
+        $start_time || dbi_time(), # do this as late as practical
     ] => $class;
 }
 
@@ -66,15 +71,16 @@ When the object is destroyed it:
 =cut
 
 sub DESTROY {
+    my $end_time = dbi_time(); # get timestamp as early as practical
+
     # Any fatal errors won't be reported because we're in a DESTROY.
     # This can make debugging hard. If you suspect a problem then uncomment this:
-    local $SIG{__DIE__} = sub { warn @_ };
+    local $SIG{__DIE__} = sub { warn @_ } if DEBUG(); ## no critic
 
-    my $end_time = dbi_time();
-    my ($meta, $start_time, $context2) = @{+shift};
+    my ($meta, $context2, $start_time) = @{+shift};
 
     my $profile_ref = $meta->{_profile_ref};
-    $profile_ref->{in_use} = undef;
+    undef $profile_ref->{in_use};
     $profile_ref->{period_accumulated} += $end_time - $start_time;
 
     my $context2edit = $meta->{context2edit} || (ref $context2 eq 'CODE' ? $context2 : undef);
@@ -82,7 +88,7 @@ sub DESTROY {
 
     carp(sprintf "%s: %s %s: %f - %f = %f",
         $profile_ref->{profile_name}, $meta->{_context1}, $context2, $start_time, $end_time, $end_time-$start_time
-    ) if 0; # enable if needed for debugging
+    ) if DEBUG() and DEBUG() >= 4;
 
     # if you get an sv_dump ("SV = RV(0x181aa80) at 0x1889a80 ...") to stderr
     # it probably means %$dbi_handles_active contains a plain hash ref not a dbh

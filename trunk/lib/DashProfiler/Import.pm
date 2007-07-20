@@ -45,6 +45,12 @@ will completely remove the code if the corresponding stash is disabled.
 If there is no DashProfiler stash called "foo" then you'll get a compile-time error.
 :optional
 
+XXX talk about
+
+    my $var = ... if ...;
+
+usually being poor style, but is okay if $var holds a ref because they're always cleared.
+
 =cut
 
 sub import {

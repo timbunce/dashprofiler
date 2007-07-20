@@ -14,9 +14,17 @@ use strict;
 
 our $VERSION = sprintf("1.%06d", q$Revision$ =~ /(\d+)/o);
 
-use DBI 1.57 qw(dbi_time);
+use DBI 1.57 qw(dbi_time dbi_profile_merge);
 use DBI::Profile;
 use Carp;
+
+
+BEGIN {
+    # use env var to control debugging at compile-time
+    my $debug = $ENV{DASHPROFILER_CORE_DEBUG} || $ENV{DASHPROFILER_DEBUG} || 0;
+    eval "sub DEBUG () { $debug }; 1;" or die; ## no critic
+}
+
 
 BEGIN {
     # load Hash::Util for lock_keys()
@@ -29,6 +37,7 @@ BEGIN {
     *lock_keys = sub { } if not defined &lock_keys;
 }
 
+
 # check for weaken support, used by ChildHandles
 my $HAS_WEAKEN = eval {
     require Scalar::Util;
@@ -38,6 +47,20 @@ my $HAS_WEAKEN = eval {
 };
 *weaken = sub { croak "Can't weaken without Scalar::Util::weaken" }
     unless $HAS_WEAKEN;
+
+
+=pod
+
+$sampler1->("warm"); # warm the cache
+for (my $i=1_000; $i--;) {
+        my $t1 = dbi_time();
+            my $ps1 = $sampler1->("spin");
+                undef $ps1;
+                    push @sample_times, dbi_time() - $t1;
+                }
+=cut
+
+my $sample_overhead_time = 0; # XXX 
 
 
 sub new {
@@ -206,16 +229,20 @@ sub start_sample_period {
 sub end_sample_period {
     my $self = shift;
     if (my $profiler = $self->{exclusive_sampler}) {
-        # create a sample with the start time forced to be period_start_time
-        # shifted forward by the accumulated sample durations. This effectively
-        # accounts for all the time between start_sample_period and end_sample_period
-        # that hasn't been accounted for by normal samples
-        $profiler->(undef, $self->{period_start_time} + $self->{period_accumulated});
+        # add a sample with the start time forced to be period_start_time
+        # shifted forward by the accumulated sample durations + sampling overheads.
+        # This accounts for all the time between start_sample_period and
+        # end_sample_period that hasn't been accounted for by normal samples.
+        dbi_profile_merge(my $total=[], $self->get_dbi_profile->{Data});
+        my $overhead = $sample_overhead_time * $total->[0];
+        warn "$self->{name} period end: overhead ${overhead}s ($total->[0] * $sample_overhead_time)"
+            if DEBUG() && DEBUG() >= 3;
+        $profiler->(undef, $self->{period_start_time} + $self->{period_accumulated} + $overhead);
         # gets destroyed, and so counted, immediately.
     }
     # disconnect period_summary dbi profile from receiving any more samples
-    delete $self->{dbi_handles_active}{period_summary};
-    return;
+    # return it to caller
+    return delete $self->{dbi_handles_active}{period_summary};
 }
 
 
