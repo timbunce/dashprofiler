@@ -6,6 +6,7 @@ use DashProfiler::Core;
 $|=1;
 
 my $dp1 = DashProfiler::Core->new("dp1", {
+    granularity => 1_000_000,
 });
 
 isa_ok $dp1, 'DashProfiler::Core';

@@ -3,6 +3,7 @@ use strict;
 use Test::More qw(no_plan);
 
 use DBI qw(dbi_time);
+use Symbol qw(gensym);
 use List::Util qw(sum min max);
 $|=1;
 
@@ -36,9 +37,25 @@ for (my $i=1_000; $i--;) {
     undef $ps1;
     push @sample_times, dbi_time() - $t1;
 }
-warn sprintf " Average sample overhead is %.5fs (max %.5fs, min %.5fs)\n",
+warn sprintf " Average 'hot' sample overhead is %.6fs (max %.6fs, min %.6fs)\n",
     sum(@sample_times)/@sample_times, max(@sample_times), min(@sample_times);
-
 $dp1->reset_profile_data;
+
+@sample_times = ();
+for (my $i=1_00; $i--;) {
+    my $t1 = dbi_time();
+    my $ps1 = $sampler1->("spin");
+    undef $ps1;
+    push @sample_times, dbi_time() - $t1;
+    cache_buster();
+}
+warn sprintf " Average 'cold' sample overhead is %.6fs (max %.6fs, min %.6fs)\n",
+    sum(@sample_times)/@sample_times, max(@sample_times), min(@sample_times);
+$dp1->reset_profile_data;
+
+sub cache_buster { # quick hack, could be better
+    my $foo = unpack("%32b*", (rand()."foo ") x 1000);
+    gensym() for (1..1000);
+}
 
 1;

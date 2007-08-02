@@ -1,17 +1,16 @@
 Changes
 lib/DashProfiler.pm
 lib/DashProfiler/Core.pm
-lib/DashProfiler/DumpNowhere.pm
 lib/DashProfiler/Import.pm
 lib/DashProfiler/Sample.pm
-lib/DashProfiler/Util.pm
 Makefile.PL
 MANIFEST
 META.yml			# Will be created by "make dist"
 README
 t/00.load.t
 t/01.core.t
-t/02.period.t
+t/02.sample.t
+t/10.period.t
 t/perlcritic.t
 t/pod-coverage.t
 t/pod.t

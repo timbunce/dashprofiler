@@ -24,6 +24,7 @@ use Carp;
 
 BEGIN {
     # use env var to control debugging at compile-time
+    # see pod for DEBUG at end
     my $debug = $ENV{DASHPROFILER_SAMPLE_DEBUG} || $ENV{DASHPROFILER_DEBUG} || 0;
     eval "sub DEBUG () { $debug }; 1;" or die; ## no critic
 }
@@ -31,16 +32,27 @@ BEGIN {
 
 =head2 new
 
+This method is normally only called by the code reference returned from the
+DashProfiler::Core prepare() method, and not directly.
+
     $sample = DashProfiler::Sample->new($meta, $context2);
     $sample = DashProfiler::Sample->new($meta, $context2, $start_time);
 
-The returned object encapsulates the time of its creation and some related meta data, such as the C<context2>.
+The returned object encapsulates the time of its creation and the supplied arguments.
+
+The $meta parameter must be a hash reference containing at least a
+'C<_dash_profile>' element which must be a reference to a DashProfiler::Core
+object. The new() method marks the profile as 'in use'.
+
+If the $context2 is false then $meta->{_context2} is used instead.
+
+If $start_time false, which it normally is, then the value returned by dbi_time() is used instead.
 
 =cut
 
 sub new {
     my ($class, $meta, $context2, $start_time) = @_;
-    my $profile_ref = $meta->{_profile_ref};
+    my $profile_ref = $meta->{_dash_profile};
     return if $profile_ref->{disabled};
     if ($profile_ref->{in_use}++) {
         Carp::cluck("$class $profile_ref->{profile_name} already active in outer scope")
@@ -60,13 +72,23 @@ sub new {
 
 =head2 DESTROY
 
-When the object is destroyed it:
+When the DashProiler::Sample object is destroyed it:
 
  - calls dbi_time() to get the time of the end of the sample
+
  - marks the profile as no longer 'in use'
+
  - adds the timespan of the sample to the 'period_accumulated' of the stash
- - determines the value of C<context2>
- - calls DBI::Profile::dbi_profile() for each profile attached to the stash
+
+ - extracts context2 from the DashProiler::Sample object
+
+ - if $meta (passed to new()) contained a 'C<context2edit>' code reference
+   then it's called and passed context2 and $meta. The return value is used
+   and context2. This is very useful where the value of context2 can't be determined
+   at the time the sample is started.
+
+ - calls DBI::Profile::dbi_profile(handle, context1, context2, start time, end time)
+   for each DBI profile currently attached to the stash.
 
 =cut
 
@@ -79,12 +101,12 @@ sub DESTROY {
 
     my ($meta, $context2, $start_time) = @{+shift};
 
-    my $profile_ref = $meta->{_profile_ref};
+    my $profile_ref = $meta->{_dash_profile};
     undef $profile_ref->{in_use};
     $profile_ref->{period_accumulated} += $end_time - $start_time;
 
     my $context2edit = $meta->{context2edit} || (ref $context2 eq 'CODE' ? $context2 : undef);
-    $context2 = $context2edit->($context2) if $context2edit;
+    $context2 = $context2edit->($context2, $meta) if $context2edit;
 
     carp(sprintf "%s: %s %s: %f - %f = %f",
         $profile_ref->{profile_name}, $meta->{_context1}, $context2, $start_time, $end_time, $end_time-$start_time
@@ -99,5 +121,16 @@ sub DESTROY {
 
     return;
 }
+
+
+=head2 DEBUG
+
+The DEBUG subroutine is a constant that returns whatever the value of
+
+    $ENV{DASHPROFILER_SAMPLE_DEBUG} || $ENV{DASHPROFILER_DEBUG} || 0;
+
+was when the modle was loaded.
+
+=cut
 
 1;
