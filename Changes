@@ -7,6 +7,9 @@ Changes - Revision history for DashProfiler
 =cut
 
 Measure overhead and subtract where appropriate, as far as possible, including from other.
+Flush at rollover (new profile node created - may not be reliable/safe)?
+Option to Flush only at period end
+Option to propogate period counts at flush - no, doc to call it in flush hook
 
 =head2 DashProfiler 1.04 - rXX - 2007
 

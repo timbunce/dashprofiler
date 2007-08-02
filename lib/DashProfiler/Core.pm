@@ -16,6 +16,7 @@ our $VERSION = sprintf("1.%06d", q$Revision$ =~ /(\d+)/o);
 
 use DBI 1.57 qw(dbi_time dbi_profile_merge);
 use DBI::Profile;
+use DBI::ProfileDumper;
 use Carp;
 
 
@@ -49,24 +50,33 @@ my $HAS_WEAKEN = eval {
     unless $HAS_WEAKEN;
 
 
-=pod
-
-$sampler1->("warm"); # warm the cache
-for (my $i=1_000; $i--;) {
+my $sample_overhead_time = 0;
+if (0) {    # calculate approximate (minimum) sample overhead time
+    my $profile = __PACKAGE__->new('overhead',{ dbi_profile_class => 'DashProfiler::DumpNowhere' });
+    my $sampler = $profile->prepare('c1');
+    my $count = 100;
+    my ($i, $sum) = ($count, 0);
+    while ($i--) {
         my $t1 = dbi_time();
-            my $ps1 = $sampler1->("spin");
-                undef $ps1;
-                    push @sample_times, dbi_time() - $t1;
-                }
-=cut
+        my $ps1 = $sampler->("c2");
+        undef $ps1;
+        $sum += dbi_time() - $t1;
+    }
+    # overhead is average of time spent calling sampler & DESTROY:
+    $sample_overhead_time = $sum / $count; # ~0.000017 on 2GHz MacBook Pro
+    # ... minus the time accumulated by the samples:
+    $sample_overhead_time -= ($profile->get_dbi_profile->{Data}{c1}{c2}[1] / $count);
+    warn sprintf "sample_overhead_time=%.6fs\n", $sample_overhead_time if DEBUG();
+    $profile->reset_profile_data;
+}
 
-my $sample_overhead_time = 0; # XXX 
 
 
 sub new {
     my ($class, $profile_name, $args_ref) = @_;
     $args_ref ||= {};
-    croak "add_profile($class, $args_ref) args must be a hash reference"
+    croak "No profile_name given" unless $profile_name && not ref $profile_name;
+    croak "$class->new($profile_name, $args_ref) args must be a hash reference"
         if ref $args_ref ne 'HASH';
 
     my $time = dbi_time();
@@ -79,17 +89,19 @@ sub new {
         dbi_profile_class    => $args_ref->{dbi_profile_class} || 'DBI::Profile',
         dbi_handles_all      => {},
         dbi_handles_active   => {},
-        exclusive_sampler    => undef,
 
         flush_interval       => $args_ref->{flush_interval}  || 60,
         flush_due_at_time    => undef,
         flush_hook           => $args_ref->{flush_hook} || undef,
         spool_directory      => $args_ref->{spool_directory} || '/tmp',
-        granularity          => $args_ref->{granularity}     || 30,
+        granularity          => $args_ref->{granularity}     || 0,
 
         # for start_period
+        period_count         => 0,
         period_start_time    => $time,
         period_accumulated   => 0,
+        period_exclusive     => $args_ref->{period_exclusive} || undef,
+        exclusive_sampler    => undef,
     } => $class;
     $self->{flush_due_at_time} = $time + $self->{flush_interval};
 
@@ -97,10 +109,9 @@ sub new {
 
     _load_class($self->{sample_class});
 
-    if (my $exclusive_name = $args_ref->{period_exclusive}) {
+    if (my $exclusive_name = $self->{period_exclusive}) {
         $self->{exclusive_sampler} = $self->prepare($exclusive_name, $exclusive_name);
     }
-
     my $dbi_profile = $self->_mk_dbi_profile($self->{dbi_profile_class}, $self->{granularity});
     $self->attach_dbi_profile( $dbi_profile, "main", 0 );
 
@@ -190,8 +201,44 @@ sub reset_profile_data {
     return;
 }
 
+
+sub _visit_nodes {  # depth first with lexical ordering
+    my ($self, $node, $path, $sub) = @_;
+    croak "No sub ref given" unless ref $sub eq 'CODE';
+    croak "No node ref given" unless ref $node;
+    $path ||= [];
+    if (ref $node eq 'HASH') {    # recurse
+        $path = [ @$path, undef ];
+        return map {
+            $path->[-1] = $_;
+            ($node->{$_}) ? $self->_visit_nodes($node->{$_}, $path, $sub) : ()
+        } sort keys %$node;
+    }
+    return $sub->($node, $path);
+}   
+
+
+sub visit_profile_nodes {
+    my ($self, $name, $sub) = @_;
+    my $dbi_profile = $self->get_dbi_profile($name);
+    return $self->_visit_nodes($dbi_profile->{Data}, undef, $sub);
+}
+
+
+sub propagate_period_count {
+    my $self = shift;
+    # force count of all nodes to be count of periods instead of samples
+    my $count = $self->{period_count} || 1;
+    warn "propagate_period_count $self->{profile_name} count $count" if DEBUG();
+    # force count of all nodes to be count of periods
+    $self->visit_profile_nodes('main', sub { return unless ref $_[0] eq 'ARRAY'; $_[0]->[0] = $count });
+    return $count;
+}
+
+
 sub flush {
     my $self = shift;
+    $self->propagate_period_count;
     if (my $flush_hook = $self->{flush_hook}) {
         # if flush_hook returns true then don't call flush_to_disk
         return if $flush_hook->($self);
@@ -220,6 +267,7 @@ sub start_sample_period {
         $self->{dbi_handles_active}{period_summary} = $period_summary_h;
         $period_summary_h->{Profile}->empty; # start period empty
     }
+    $self->{period_count}++;
     $self->{period_accumulated} = 0;
     $self->{period_start_time}  = dbi_time();
     return;
@@ -254,9 +302,9 @@ sub prepare {
     # return a light wrapper around the profile, containing the context1
     my $sample_class = $self->{sample_class};
     # use %meta to carry context info into sample object factory
-    $meta{_profile_ref} = $self;
-    $meta{_context1}    = $context1;
-    $meta{_context2}    = $context2;
+    $meta{_dash_profile} = $self;
+    $meta{_context1}     = $context1;
+    $meta{_context2}     = $context2;
     # skip method lookup
     my $coderef = $sample_class->can("new") || "new";
     return sub {
@@ -276,6 +324,26 @@ sub _load_class {
 }
 
 
+=head2 DEBUG
+    
+The DEBUG subroutine is a constant that returns whatever the value of
+
+    $ENV{DASHPROFILER_CORE_DEBUG} || $ENV{DASHPROFILER_DEBUG} || 0;
+
+was when the modle was loaded.
+        
+=cut
+
+
+
+# --- DBI::ProfileDumper subclass that doesn't flush_to_disk
+#     Used by period_sample
+{
+    package DashProfiler::DumpNowhere;
+    use strict;
+    use base qw(DBI::ProfileDumper);
+    sub flush_to_disk { return }
+}
 
 
 # --- ultra small 'null' driver for DBI ---
