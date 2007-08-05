@@ -10,12 +10,18 @@ Measure overhead and subtract where appropriate, as far as possible, including f
 Flush at rollover (new profile node created - may not be reliable/safe)?
 Option to Flush only at period end
 Option to propogate period counts at flush - no, doc to call it in flush hook
+Detect multiple start periods with no end period
 
 =head2 DashProfiler 1.04 - rXX - 2007
 
   Require 5.008, just due to sprintf '%$N' usage in tests.
   Add :optional to DashProfiler::Import
   Make Scalar::Util::weaken optional.
+  Added dbi_profile_args to pass extra args to dbi_profile_class->new().
+  Removed spool_directory (use dbi_profile_args => { Dir => ... } instead)
+  Set local $ENV{DBI_AUTOPROXY} to avoid risk of problems
+  Added lots of docs.
+  Generalized get_dbi_profile() to take a '*' and simplified other code as a result.
 
 =head2 DashProfiler 1.03 - r15 - Jun 23 2007
 
