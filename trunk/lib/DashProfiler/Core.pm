@@ -2,11 +2,19 @@ package DashProfiler::Core;
 
 =head1 NAME
 
-DashProfiler::Core - Accumulator of profile samples and sampler factory
+DashProfiler::Core - DashProfiler core object and sampler factory
 
 =head1 SYNOPSIS
 
 This is currently viewed as an internal class. The interface may change.
+The DashProfiler and DashProfiler::Import modules are the usual interfaces.
+
+=head1 DESCRIPTION
+
+A DashProfiler::Core objects are the core of the DashProfiler, naturally.
+They sit between the 'samplers' that feed data into a core, and the DBI::Profile
+objects that aggregate those samples. A core may have multiple samplers and
+multiple profiles.
 
 =cut
 
@@ -71,37 +79,124 @@ if (0) {    # calculate approximate (minimum) sample overhead time
 }
 
 
+=head2 new
+
+  $obj = DashProfiler::Core->new( 'foo' );
+
+  $obj = DashProfiler::Core->new( 'bar', { ...options... } );
+
+  $obj = DashProfiler::Core->new( extsys => {
+      granularity => 10,
+      flush_interval => 300,
+  } );
+
+Creates DashProfiler::Core objects. These should normally created very early in
+the life of the program, especially when using DashProfiler::Import.
+
+=head3 Options
+
+=over 4
+
+=item disabled
+
+Set to a true value to prevent samples being added to this core.
+Especially relevant for DashProfiler::Import where disabling
+.
+Default false.
+
+=item dbi_profile_class
+
+Specifies the class to use for creating DBI::Profile objects.
+The default is C<DBI::Profile>. Alternatives include C<DBI::ProfileDumper>
+and C<DBI::ProfileDumper::Apache>.
+
+=item dbi_profile_args
+
+Specifies extra arguments to pass the new() method of the C<dbi_profile_class>
+(e.g., C<DBI::Profile>). The default is C<{ }>.
+
+=item flush_interval
+
+How frequently the DBI:Profiles associated with this core should be written out
+and the data reset. Default is 0 - no regular flushing.
+
+=item flush_hook
+
+If set, this code reference is called when flush() is called and can influence
+its behaviour. See L</flush> for details.
+
+=item granularity
+
+The default C<Path> for the DBI::Profile objects doesn't include time.
+The granularity option adds 'C<!Time~$granularity>' to the front of the Path.
+So as time passes the samples are aggregated into new sub-trees.
+
+=item sample_class
+
+The sample_class option specifies which class should be used to take profile samples.
+The default is C<DashProfiler::Sample>.
+See the L</pepare> method for more information.
+
+=item period_exclusive
+
+When usng periods, via the start_sample_period() and end_sample_period() methods,
+DashProfiler can add an additional sample representing the time between the
+start_sample_period() and end_sample_period() method calls that wasn't accounted for by the samples.
+
+The period_exclusive option enables this extra sample. The value of the option
+is used as the value for key1 and key2 in the Path.
+
+=item period_summary
+
+Specifies the name of the extra DBI Profile object to attach to the core.
+This extra 'period summary' profile is enabled and reset by the start_sample_period()
+method and disabled by the end_sample_period() method.
+
+The mechanism enables a single profile to be used to capture both long-running
+sampling (for example in a web application, often with C<granularity> set)
+and single-period.
+
+=back
+
+
+=cut
 
 sub new {
-    my ($class, $profile_name, $args_ref) = @_;
-    $args_ref ||= {};
+    my ($class, $profile_name, $opt_params) = @_;
+    $opt_params ||= {};
     croak "No profile_name given" unless $profile_name && not ref $profile_name;
-    croak "$class->new($profile_name, $args_ref) args must be a hash reference"
-        if ref $args_ref ne 'HASH';
+    croak "$class->new($profile_name, $opt_params) options must be a hash reference"
+        if ref $opt_params ne 'HASH';
+
+    our $opt_defaults ||= {
+        disabled => 0,
+        sample_class => 'DashProfiler::Sample',
+        dbi_profile_class => 'DBI::Profile',
+        dbi_profile_args => {},
+        flush_interval => 0,
+        flush_hook => undef,
+        granularity => 0,
+        period_exclusive => undef,
+        period_summary => undef,
+    };
+    croak "Invalid options: ".join(', ', grep { !$opt_defaults->{$_} } keys %$opt_params)
+        if keys %{ { %$opt_defaults, %$opt_params } } > keys %$opt_defaults;
 
     my $time = dbi_time();
     my $self = bless {
         profile_name         => $profile_name,
         in_use               => 0,
         in_use_warning_given => 0,
-        disabled             => $args_ref->{disabled},
-        sample_class         => $args_ref->{sample_class} || 'DashProfiler::Sample',
-        dbi_profile_class    => $args_ref->{dbi_profile_class} || 'DBI::Profile',
         dbi_handles_all      => {},
         dbi_handles_active   => {},
-
-        flush_interval       => $args_ref->{flush_interval}  || 60,
         flush_due_at_time    => undef,
-        flush_hook           => $args_ref->{flush_hook} || undef,
-        spool_directory      => $args_ref->{spool_directory} || '/tmp',
-        granularity          => $args_ref->{granularity}     || 0,
-
         # for start_period
         period_count         => 0,
         period_start_time    => $time,
         period_accumulated   => 0,
-        period_exclusive     => $args_ref->{period_exclusive} || undef,
         exclusive_sampler    => undef,
+        %$opt_defaults,
+        %$opt_params,
     } => $class;
     $self->{flush_due_at_time} = $time + $self->{flush_interval};
 
@@ -115,7 +210,7 @@ sub new {
     my $dbi_profile = $self->_mk_dbi_profile($self->{dbi_profile_class}, $self->{granularity});
     $self->attach_dbi_profile( $dbi_profile, "main", 0 );
 
-    if (my $period_summary = $args_ref->{period_summary}) {
+    if (my $period_summary = $self->{period_summary}) {
         my $dbi_profile = $self->_mk_dbi_profile("DashProfiler::DumpNowhere", 0);
         my $dbh = $self->attach_dbi_profile( $dbi_profile, "period_summary", 0 );
         $self->{dbi_handles_all}{period_summary} = $dbh;
@@ -126,9 +221,28 @@ sub new {
 }
 
 
+=head2 attach_dbi_profile
+
+  $core->attach_dbi_profile( $dbi_profile, $name );
+
+Attaches a DBI Profile to a DashProfiler::Core object using the $name given.
+Any later samples are also aggregated into this DBI Profile.
+
+Not normally called directly. The new() method calls attach_dbi_profile() to
+attach the "main" profile and the C<period_summary> profile, if enabled.
+
+The $dbi_profile argument can be either a DBI::Profile object or a string
+containing a DBI::Profile specification.
+
+The get_dbi_profile($name) method can be used to retrieve the profile.
+
+=cut
+
 sub attach_dbi_profile {
-    my ($self, $dbi_profile, $name, $weakly) = @_;
+    my ($self, $dbi_profile, $dbi_profile_name, $weakly) = @_;
     # wrap DBI::Profile object/spec with a DBI handle
+    croak "No dbi_profile_name specified" unless defined $dbi_profile_name;
+    local $ENV{DBI_AUTOPROXY};
     my $dbh = DBI->connect("dbi:DashProfiler:", "", "", {
         Profile => $dbi_profile,
         RaiseError => 1, PrintError => 1, TraceLevel => 0,
@@ -138,19 +252,19 @@ sub attach_dbi_profile {
     for my $handles ($self->{dbi_handles_all}, $self->{dbi_handles_active}) {
         # clean out any dead weakrefs
         defined $handles->{$_} or delete $handles->{$_} for keys %$handles;
-        $handles->{$name} = $dbh;
-        weaken($handles->{$name}) if $weakly;
+        $handles->{$dbi_profile_name} = $dbh;
+#       weaken($handles->{$dbi_profile_name}) if $weakly;   # not currently documented or used
     }
     return $dbh;
 }
 
 
-sub attach_new_temporary_plain_profile {
-    my ($self, $name) = @_;
+sub _attach_new_temporary_plain_profile {   # not currently documented or used
+    my ($self, $dbi_profile_name) = @_;
     # create new DBI profile (with no time key) that doesn't flush anywhere
     my $dbi_profile = $self->_mk_dbi_profile("DashProfiler::DumpNowhere", 0);
     # attach to the profile, but only weakly
-    $self->attach_dbi_profile( $dbi_profile, $name, 1 );
+    $self->attach_dbi_profile( $dbi_profile, $dbi_profile_name, 1 );
     # return ref so caller can store till ready to discard
     return $dbi_profile;
 }
@@ -167,19 +281,60 @@ sub _mk_dbi_profile {
         Quiet => 1,
         Trace => 0,
         File  => "dashprofile.$self->{profile_name}",
-        Dir   => $self->{spool_directory},
+        %{ $self->{dbi_profile_args} },
     );
 
     return $dbi_profile;
 };
 
+
+=head2 get_dbi_profile
+
+  $dbi_profile  = $core->get_dbi_profile( $dbi_profile_name );
+  @dbi_profiles = $core->get_dbi_profile( '*' );
+
+Returns a reference to the DBI Profile object that attached to the $core with the given name.
+If $dbi_profile_name is undef then it defaults to "main".
+Returns undef if there's no profile with that name atached.
+If $dbi_profile_name is 'C<*>' then it returns all attached profiles.
+See L</attach_dbi_profile>.
+
+=cut
+
 sub get_dbi_profile {
     my ($self, $name) = @_;
-    my $dbi_handles = $self->{dbi_handles_all} or return;
+    my $dbi_handles = $self->{dbi_handles_all}
+        or return;
     # we take care to avoid auto-viv here
-    my $dbh = $dbi_handles->{ $name || 'main' } or return;
-    return $dbh->{Profile};
+    my $dbh = $dbi_handles->{ $name || 'main' };
+    return $dbh->{Profile} if $dbh;
+    return unless $name eq '*';
+    croak "get_dbi_profile('*') called in scalar context" unless wantarray;
+    return map {
+        ($_->{Profile}) ? ($_->{Profile}) : ()
+    } values %$dbi_handles;
 }
+
+
+=head2 profile_as_text
+
+  $core->profile_as_text();
+  $core->profile_as_text( $dbi_profile_name );
+  $core->profile_as_text( $dbi_profile_name, {
+      path      => [ $self->{profile_name} ],
+      format    => '%1$s: dur=%11$f count=%10$d (max=%14$f avg=%2$f)'."\n",
+      separator => ">",
+  } );
+
+Returns the aggregated data from the specified DBI Profile (default "main") formatted as a string.
+Calls L</get_dbi_profile> to get the DBI Profile, then calls the C<as_text> method on the profile.
+See L<DBI::Profile> for more details of the parameters.
+
+In list context it returns one item per profile leaf node, in scalar context
+they're concatenated into a single string. Returns undef if the named DBI
+Profile doesn't exist.
+
+=cut
 
 sub profile_as_text {
     my $self = shift;
@@ -193,11 +348,21 @@ sub profile_as_text {
 }
 
 
+=head2 reset_profile_data
+
+  $core->reset_profile_data( $dbi_profile_name );
+
+Resets (discards) DBI Profile data and resets the period count to 0.
+If $dbi_profile_name is false then it defaults to "main".
+If $dbi_profile_name is false "*" then all attached profiles are reset.
+
+=cut
+
 sub reset_profile_data {
-    for (values %{shift->{dbi_handles_all}}) {
-        next unless $_ && $_->{Profile};
-        $_->{Profile}->empty;
-    }
+    my ($self, $dbi_profile_name) = @_;
+    my @dbi_profiles = $self->get_dbi_profile($dbi_profile_name);
+    $_->empty for @dbi_profiles;
+    $self->{period_count} = 0;
     return;
 }
 
@@ -218,45 +383,129 @@ sub _visit_nodes {  # depth first with lexical ordering
 }   
 
 
+=head2 visit_profile_nodes
+
+  $core->visit_profile_nodes( $dbi_profile_name, sub { ... } )
+
+Calls the given subroutine for each leaf node in the named DBI Profile.
+The name defaults to "main". If $dbi_profile_name is "*" then the leafs nodes
+in all the attached profiles are visited.
+
+=cut
+
 sub visit_profile_nodes {
-    my ($self, $name, $sub) = @_;
-    my $dbi_profile = $self->get_dbi_profile($name);
-    return $self->_visit_nodes($dbi_profile->{Data}, undef, $sub);
+    my ($self, $dbi_profile_name, $sub) = @_;
+    my @dbi_profiles = $self->get_dbi_profile($dbi_profile_name);
+    $self->_visit_nodes($_->{Data}, undef, $sub)
+        for (@dbi_profiles);
+    return;
 }
 
 
+=head2 propagate_period_count {
+
+  $core->propagate_period_count( $dbi_profile_name )
+
+Sets the count field of all the leaf-nodes in the named DBI Profile to the
+number of times start_sample_period() has been called since the last flush() or
+reset_profile_data().
+
+If $dbi_profile_name is "*" then counts in all attached profiles are set.
+
+Resets the period count to zero and returns the previous count.
+
+Does nothing but return 0 if the the period count is zero.
+
+This method is especially useful where the number of sample I<periods> are much
+more relevant than the number of samples. This is typically the case where
+sample periods correspond to major units of work, such as web requests.
+Using propagate_period_count() lets you calculate averages based on the count
+of periods instead of samples.
+
+Imagine, for example, that you're instrumenting a web application and you have
+a function that sends a request to some network service and another reads each
+line of the response.  You'd add DashProfiler sampler calls to each function.
+The number of samples recorded in the leaf node will depends on the number of
+lines in the response from the network service. You're much more likely to want
+to know "average total time spent handling the network service per http request"
+than "average time spent in a network service related function".
+
+This method is typically called just before a flush(), often via C<flush_hook>.
+
+=cut
+
 sub propagate_period_count {
-    my $self = shift;
+    my ($self, $dbi_profile_name) = @_;
     # force count of all nodes to be count of periods instead of samples
-    my $count = $self->{period_count} || 1;
+    my $count = $self->{period_count}
+        or return 0;
     warn "propagate_period_count $self->{profile_name} count $count" if DEBUG();
     # force count of all nodes to be count of periods
-    $self->visit_profile_nodes('main', sub { return unless ref $_[0] eq 'ARRAY'; $_[0]->[0] = $count });
+    $self->visit_profile_nodes($dbi_profile_name, sub { return unless ref $_[0] eq 'ARRAY'; $_[0]->[0] = $count });
+    $self->{period_count} = 0;
     return $count;
 }
 
 
+=head2 flush
+
+  $core->flush()
+  $core->flush( $dbi_profile_name )
+
+Calls the C<flush_hook> code reference, if set, passing it $core and $dbi_profile_name.
+If that code returns true then flush() does no more except returns undef.
+The presumption being that the code ref took care of the flushing.
+
+If C<flush_hook> wasn't set, or it returned false, then the flush_to_disk()
+method is called for the named DBI Profile (defaults to "main", use "*" for all).
+
+=cut
+
+
 sub flush {
-    my $self = shift;
-    $self->propagate_period_count;
+    my ($self, $dbi_profile_name) = @_;
     if (my $flush_hook = $self->{flush_hook}) {
         # if flush_hook returns true then don't call flush_to_disk
-        return if $flush_hook->($self);
+        return if $flush_hook->($self, $dbi_profile_name);
     }
-    for (values %{ $self->{dbi_handles_all} }) {
-        next unless $_ && $_->{Profile};
-        $_->{Profile}->flush_to_disk;
-    }
-    return;
+    my @dbi_profiles = $self->get_dbi_profile($dbi_profile_name);
+    $_->flush_to_disk for (@dbi_profiles);
+    return @dbi_profiles;
 }
+
+
+=head2 flush_if_due
+
+  $core->flush_if_due()
+  $core->flush_if_due( $dbi_profile_name )
+
+Returns 0 if C<flush_interval> was not set.
+Returns 0 if C<flush_interval> was set but insufficient time has passed since
+the last call to flush_if_due().
+Otherwise notes the time the next flush will be due, and calls flush().
+
+=cut
 
 sub flush_if_due {
-    my $self = shift;
+    my ($self, $dbi_profile_name) = @_;
+    return 0 unless $self->{flush_interval};
     return 0 if time() < $self->{flush_due_at_time};
     $self->{flush_due_at_time} = time() + $self->{flush_interval};
-    return $self->flush;
+    return $self->flush($dbi_profile_name);
 }
 
+
+=head2 start_sample_period
+
+  $core->start_sample_period
+
+Marks the start of a series of related samples, e.g, within one http request.
+
+XXX more detail needed here
+
+See also L</end_sample_period>, C<period_summary> and L</propagate_period_count>.
+
+=cut
 
 sub start_sample_period {
     my $self = shift;
@@ -273,6 +522,18 @@ sub start_sample_period {
     return;
 }
 
+
+=head2 end_sample_period
+
+  $core->end_sample_period
+
+Marks the end of a series of related samples, e.g, within one http request.
+
+XXX more detail needed here
+
+See also L</start_sample_period>, C<period_summary> and L</propagate_period_count>.
+
+=cut
 
 sub end_sample_period {
     my $self = shift;
@@ -294,13 +555,22 @@ sub end_sample_period {
 }
 
 
+=head2 prepare
+
+  $sampler_code_ref = $core->prepare( $context1 )
+  $sampler_code_ref = $core->prepare( $context1, $context2 )
+
+XXX
+
+=cut
+
 sub prepare {
     my ($self, $context1, $context2, %meta) = @_;
     # return undef if profile exists but is disabled
     return undef if $self->{disabled}; ## no critic
 
     # return a light wrapper around the profile, containing the context1
-    my $sample_class = $self->{sample_class};
+    my $sample_class = $meta{sample_class} || $self->{sample_class};
     # use %meta to carry context info into sample object factory
     $meta{_dash_profile} = $self;
     $meta{_context1}     = $context1;
