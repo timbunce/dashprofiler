@@ -192,7 +192,7 @@ sub new {
         flush_due_at_time    => undef,
         # for start_period
         period_count         => 0,
-        period_start_time    => $time,
+        period_start_time    => 0,
         period_accumulated   => 0,
         exclusive_sampler    => undef,
         %$opt_defaults,
@@ -477,7 +477,6 @@ sub flush {
 =head2 flush_if_due
 
   $core->flush_if_due()
-  $core->flush_if_due( $dbi_profile_name )
 
 Returns 0 if C<flush_interval> was not set.
 Returns 0 if C<flush_interval> was set but insufficient time has passed since
@@ -487,11 +486,11 @@ Otherwise notes the time the next flush will be due, and calls flush().
 =cut
 
 sub flush_if_due {
-    my ($self, $dbi_profile_name) = @_;
+    my ($self) = @_;
     return 0 unless $self->{flush_interval};
     return 0 if time() < $self->{flush_due_at_time};
     $self->{flush_due_at_time} = time() + $self->{flush_interval};
-    return $self->flush($dbi_profile_name);
+    return $self->flush();
 }
 
 
@@ -501,7 +500,10 @@ sub flush_if_due {
 
 Marks the start of a series of related samples, e.g, within one http request.
 
-XXX more detail needed here
+Increments the C<period_count> attribute.
+Resets the C<period_accumulated> attribute to zero.
+Sets C<period_start_time> to the current dbi_time().
+If C<period_summary> is enabled then the period_summary DBI Profile is enabled and reset.
 
 See also L</end_sample_period>, C<period_summary> and L</propagate_period_count>.
 
@@ -511,6 +513,10 @@ sub start_sample_period {
     my $self = shift;
     # marks the start of a series of related samples, e.g, within one http request
     # see end_sample_period()
+    if ($self->{period_start_time}) {
+        carp "start_sample_period() called for $self->{profile_name} without preceeding end_sample_period()";
+        $self->end_sample_period();
+    }
     if (my $period_summary_h = $self->{dbi_handles_all}{period_summary}) {
         # ensure period_summary_h dbi profile will receive samples
         $self->{dbi_handles_active}{period_summary} = $period_summary_h;
@@ -529,7 +535,13 @@ sub start_sample_period {
 
 Marks the end of a series of related samples, e.g, within one http request.
 
-XXX more detail needed here
+If C<exclusive_sampler> is enabled then a sample is added with a duration
+caclulated to be the time since start_sample_period() was called to now, minus
+the time accumulated by samples since start_sample_period() was called.
+
+Resets the C<period_start_time> attribute to 0.  If C<period_summary> is
+enabled then the C<period_summary> DBI Profile is disabled and returned, else
+undef is returned.
 
 See also L</start_sample_period>, C<period_summary> and L</propagate_period_count>.
 
@@ -537,6 +549,10 @@ See also L</start_sample_period>, C<period_summary> and L</propagate_period_coun
 
 sub end_sample_period {
     my $self = shift;
+    if (not $self->{period_start_time}) {
+        carp "end_sample_period() called for $self->{profile_name} without preceeding start_sample_period()";
+        $self->start_sample_period;
+    }
     if (my $profiler = $self->{exclusive_sampler}) {
         # add a sample with the start time forced to be period_start_time
         # shifted forward by the accumulated sample durations + sampling overheads.
@@ -549,9 +565,11 @@ sub end_sample_period {
         $profiler->(undef, $self->{period_start_time} + $self->{period_accumulated} + $overhead);
         # gets destroyed, and so counted, immediately.
     }
+    $self->{period_start_time} = 0;
     # disconnect period_summary dbi profile from receiving any more samples
     # return it to caller
-    return delete $self->{dbi_handles_active}{period_summary};
+    my $period_summary_dbh = delete $self->{dbi_handles_active}{period_summary};
+    return ($period_summary_dbh) ? $period_summary_dbh->{Profile} : undef;
 }
 
 
@@ -559,8 +577,20 @@ sub end_sample_period {
 
   $sampler_code_ref = $core->prepare( $context1 )
   $sampler_code_ref = $core->prepare( $context1, $context2 )
+  $sampler_code_ref = $core->prepare( $context1, $context2, %meta )
 
-XXX
+  $sampler_code_ref->( $context2 )
+  $sampler_code_ref->( $context2, $start_time )
+
+Returns a reference to a subroutine that will create sampler objects.
+In effect the prepare() method creates a 'factory'.
+
+The sampler objects created by the returned code reference are pre-set to use
+$context1, and optionally $context2, as their context values.
+
+XXX needs more info about %meta - see the code for now, it's not very complex.
+
+See L<DashProfiler::Sample> for more information.
 
 =cut
 

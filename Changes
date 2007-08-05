@@ -9,8 +9,6 @@ Changes - Revision history for DashProfiler
 Measure overhead and subtract where appropriate, as far as possible, including from other.
 Flush at rollover (new profile node created - may not be reliable/safe)?
 Option to Flush only at period end
-Option to propogate period counts at flush - no, doc to call it in flush hook
-Detect multiple start periods with no end period
 
 =head2 DashProfiler 1.04 - rXX - 2007
 
@@ -22,6 +20,8 @@ Detect multiple start periods with no end period
   Set local $ENV{DBI_AUTOPROXY} to avoid risk of problems
   Added lots of docs.
   Generalized get_dbi_profile() to take a '*' and simplified other code as a result.
+  start_sample_period and end_sample_period check for overlaps
+  end_sample_period now returns period_sample DBI Profile object not dbh
 
 =head2 DashProfiler 1.03 - r15 - Jun 23 2007
 
