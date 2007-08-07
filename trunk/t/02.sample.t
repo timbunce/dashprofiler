@@ -1,6 +1,7 @@
 use strict;
 
 use Test::More qw(no_plan);
+use Config;
 
 use DBI qw(dbi_time);
 use Symbol qw(gensym);
@@ -27,7 +28,8 @@ if (@diffs) {
 
 # prepare a new sampler
 my $sampler1 = $dp1->prepare("c1");
-isa_ok $sampler1, 'CODE';
+
+warn " you're using perl $] on $Config::Config{archname}\n";
 
 my @sample_times;
 $sampler1->("warm"); # warm the cache
@@ -37,7 +39,7 @@ for (my $i=1_000; $i--;) {
     undef $ps1;
     push @sample_times, dbi_time() - $t1;
 }
-warn sprintf " Average 'hot' sample overhead is %.6fs (max %.6fs, min %.6fs)\n",
+warn sprintf " Average 'hot' sample overhead is  %.6fs (max %.6fs, min %.6fs)\n",
     sum(@sample_times)/@sample_times, max(@sample_times), min(@sample_times);
 $dp1->reset_profile_data;
 
@@ -52,6 +54,8 @@ for (my $i=1_00; $i--;) {
 warn sprintf " Average 'cold' sample overhead is %.6fs (max %.6fs, min %.6fs)\n",
     sum(@sample_times)/@sample_times, max(@sample_times), min(@sample_times);
 $dp1->reset_profile_data;
+
+pass();
 
 sub cache_buster { # quick hack, could be better
     my $foo = unpack("%32b*", (rand()."foo ") x 1000);
