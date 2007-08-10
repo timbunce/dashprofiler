@@ -149,7 +149,7 @@ So as time passes the samples are aggregated into new sub-trees.
 
 The sample_class option specifies which class should be used to take profile samples.
 The default is C<DashProfiler::Sample>.
-See the L</pepare> method for more information.
+See the L</prepare> method for more information.
 
 =item period_exclusive
 
@@ -688,7 +688,7 @@ The DEBUG subroutine is a constant that returns whatever the value of
     $ENV{DASHPROFILER_CORE_DEBUG} || $ENV{DASHPROFILER_DEBUG} || 0;
 
 was when the modle was loaded.
-        
+
 =cut
 
 

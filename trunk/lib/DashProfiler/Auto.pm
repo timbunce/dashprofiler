@@ -6,7 +6,8 @@ use Carp;
 
 use base qw(DashProfiler::Import);
 
-our $VERSION = "1.04";
+our $VERSION = sprintf("1.%06d", q$Revision$ =~ /(\d+)/o);
+
 
 =head1 NAME
 

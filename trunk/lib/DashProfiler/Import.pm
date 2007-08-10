@@ -51,7 +51,7 @@ will completely remove the code if the corresponding DashProfiler is disabled.
 
 If there is no DashProfiler called "foo" then you'll get a compile-time error
 unless the C<:optional> directive has been given first.
- 
+
 Generally this style of code in perl is considered bad practice and error prone:
 
     my $var = ... if ...;

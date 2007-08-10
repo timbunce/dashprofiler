@@ -1,5 +1,7 @@
 package DashProfiler::UserGuide;
 
+our $VERSION = sprintf("1.%06d", q$Revision$ =~ /(\d+)/o);
+
 =head1 NAME
 
 DashProfiler::UserGuide - a user guide for the DashProfiler modules
