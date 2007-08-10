@@ -11,7 +11,7 @@ Flush at rollover (new profile node created - may not be reliable/safe)?
 Option to Flush (_if_due) only at period end
 Move DashProfiler::Dump* packages out to modules
 
-=head2 DashProfiler 1.04 - r24 - Aug 10 2007
+=head2 DashProfiler 1.05 - r25 - Aug 10 2007
 
   Added :optional to DashProfiler::Import
   Added dbi_profile_args to pass extra args to dbi_profile_class->new().
