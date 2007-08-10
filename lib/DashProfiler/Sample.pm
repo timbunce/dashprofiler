@@ -6,6 +6,8 @@ DashProfiler::Sample - encapsulates the acquisition of a single sample
 
 =head1 DESCRIPTION
 
+Firstly, read L<DashProfiler::UserGuide> for a general introduction.
+
 A DashProfiler::Sample object is returned from the prepare() method of DashProfiler::Core,
 or from the functions imported by DashProfiler::Import.
 
@@ -78,7 +80,7 @@ When the DashProiler::Sample object is destroyed it:
 
  - marks the profile as no longer 'in use'
 
- - adds the timespan of the sample to the 'period_accumulated' of the stash
+ - adds the timespan of the sample to the 'period_accumulated' of the DashProiler
 
  - extracts context2 from the DashProiler::Sample object
 
@@ -88,7 +90,7 @@ When the DashProiler::Sample object is destroyed it:
    at the time the sample is started.
 
  - calls DBI::Profile::dbi_profile(handle, context1, context2, start time, end time)
-   for each DBI profile currently attached to the stash.
+   for each DBI profile currently attached to the DashProiler.
 
 =cut
 

@@ -19,7 +19,7 @@ DashProfiler::Import - Import curried DashProfiler sampler function at compile-t
   use DashProfiler::Import foo_profiler => [ "my context 1" ];
 
   use DashProfiler::Import foo_profiler => [ "my context 1" ],
-                           bar_profiler => [ "my context 1" ];
+                           bar_profiler => [ "my context 1", context2edit => sub { ... } ];
 
   use DashProfiler::Import :optional baz_profiler => [ "my context 1" ];
 
@@ -28,28 +28,38 @@ DashProfiler::Import - Import curried DashProfiler sampler function at compile-t
 
 =head1 DESCRIPTION
 
+Firstly, read L<DashProfiler::UserGuide> for a general introduction.
+
 The example above imports a function called foo_profiler() that is a sample
-factory for the DashProfiler stash called "foo", pre-configured ("curried") to
+factory for the DashProfiler called "foo", pre-configured ("curried") to
 use the value "bar" for context1.
 
-It also imports a function called foo_profiler_enabled() that's a constant,
-returning false if the stash was disabled at the time. This is useful when
-profiling very time-senstive code and you want the profiling to have I<zero>
-overhead when not in use. For example:
+=head2 Using *_profiler_enabled()
 
-    $sample = foo_profiler("baz") if foo_profiler_enabled();
+It also imports a function called foo_profiler_enabled() that's a constant,
+returning false if the named DashProfiler was disabled at the time.
+
+This is useful when profiling very time-senstive code and you want the
+profiling to have I<zero> overhead when not in use. For example:
+
+    my $sample = foo_profiler("baz") if foo_profiler_enabled();
 
 Because the C<*_profiler_enabled> function is a constant, the perl compiler
-will completely remove the code if the corresponding stash is disabled.
+will completely remove the code if the corresponding DashProfiler is disabled.
 
-If there is no DashProfiler stash called "foo" then you'll get a compile-time error.
-:optional
-
-XXX talk about
+If there is no DashProfiler called "foo" then you'll get a compile-time error
+unless the C<:optional> directive has been given first.
+ 
+Generally this style of code in perl is considered bad practice and error prone:
 
     my $var = ... if ...;
 
-usually being poor style, but is okay if $var holds a ref because they're always cleared.
+because the behaviour when the condition is false on one execution having been
+true on previous execution is not well defined (on purpose, because it's
+surprisingly hard to explain what it does, and anyway, it may change).
+
+For the DashProfiler::Import module, however, that style of code is just fine.
+That's because the condition is a compile-time constant.
 
 =cut
 

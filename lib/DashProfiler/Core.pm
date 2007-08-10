@@ -6,7 +6,9 @@ DashProfiler::Core - DashProfiler core object and sampler factory
 
 =head1 SYNOPSIS
 
-This is currently viewed as an internal class. The interface may change.
+See L<DashProfiler::UserGuide> for a general introduction.
+
+DashProfiler::Core is currently viewed as an internal class. The interface may change.
 The DashProfiler and DashProfiler::Import modules are the usual interfaces.
 
 =head1 DESCRIPTION
@@ -58,7 +60,7 @@ my $HAS_WEAKEN = eval {
     unless $HAS_WEAKEN;
 
 
-my $sample_overhead_time = 0;
+my $sample_overhead_time = 0.000020; # on my 2GHz laptop (must not be zero)
 if (0) {    # calculate approximate (minimum) sample overhead time
     my $profile = __PACKAGE__->new('overhead',{ dbi_profile_class => 'DashProfiler::DumpNowhere' });
     my $sampler = $profile->prepare('c1');
@@ -123,7 +125,15 @@ and the data reset. Default is 0 - no regular flushing.
 =item flush_hook
 
 If set, this code reference is called when flush() is called and can influence
-its behaviour. See L</flush> for details.
+its behaviour. For example, this is the flush_hook used by L<DashProfiler::Auto>:
+
+    flush_hook => sub {
+        my ($self, $dbi_profile_name) = @_;
+        warn $_ for $self->profile_as_text($dbi_profile_name);
+        return $self->reset_profile_data($dbi_profile_name);
+    },
+
+See L</flush> for more details.
 
 =item granularity
 
@@ -355,6 +365,7 @@ sub profile_as_text {
 Resets (discards) DBI Profile data and resets the period count to 0.
 If $dbi_profile_name is false then it defaults to "main".
 If $dbi_profile_name is false "*" then all attached profiles are reset.
+Returns a list of the affected DBI::Profile objects.
 
 =cut
 
@@ -363,7 +374,7 @@ sub reset_profile_data {
     my @dbi_profiles = $self->get_dbi_profile($dbi_profile_name);
     $_->empty for @dbi_profiles;
     $self->{period_count} = 0;
-    return;
+    return @dbi_profiles;
 }
 
 
@@ -452,12 +463,14 @@ sub propagate_period_count {
   $core->flush()
   $core->flush( $dbi_profile_name )
 
-Calls the C<flush_hook> code reference, if set, passing it $core and $dbi_profile_name.
-If that code returns true then flush() does no more except returns undef.
-The presumption being that the code ref took care of the flushing.
+Calls the C<flush_hook> code reference, if set, passing it $core and the
+$dbi_profile_name augument (which is typically undef).  If the C<flush_hook>
+code returns a non-empty list then flush() does nothing more except return that
+list.
 
-If C<flush_hook> wasn't set, or it returned false, then the flush_to_disk()
+If C<flush_hook> wasn't set, or it returned an empty list, then the flush_to_disk()
 method is called for the named DBI Profile (defaults to "main", use "*" for all).
+In this case flush() returns a list of the DBI::Profile objects flushed.
 
 =cut
 
@@ -466,7 +479,9 @@ sub flush {
     my ($self, $dbi_profile_name) = @_;
     if (my $flush_hook = $self->{flush_hook}) {
         # if flush_hook returns true then don't call flush_to_disk
-        return if $flush_hook->($self, $dbi_profile_name);
+        my @ret = $flush_hook->($self, $dbi_profile_name);
+        return @ret if @ret;
+        # else fall through
     }
     my @dbi_profiles = $self->get_dbi_profile($dbi_profile_name);
     $_->flush_to_disk for (@dbi_profiles);
@@ -478,17 +493,17 @@ sub flush {
 
   $core->flush_if_due()
 
-Returns 0 if C<flush_interval> was not set.
-Returns 0 if C<flush_interval> was set but insufficient time has passed since
+Returns nothing if C<flush_interval> was not set.
+Returns nothing if C<flush_interval> was set but insufficient time has passed since
 the last call to flush_if_due().
-Otherwise notes the time the next flush will be due, and calls flush().
+Otherwise notes the time the next flush will be due, and calls C<return flush();>.
 
 =cut
 
 sub flush_if_due {
     my ($self) = @_;
-    return 0 unless $self->{flush_interval};
-    return 0 if time() < $self->{flush_due_at_time};
+    return unless $self->{flush_interval};
+    return if time() < $self->{flush_due_at_time};
     $self->{flush_due_at_time} = time() + $self->{flush_interval};
     return $self->flush();
 }
@@ -562,7 +577,8 @@ sub end_sample_period {
         my $overhead = $sample_overhead_time * $total->[0];
         warn "$self->{name} period end: overhead ${overhead}s ($total->[0] * $sample_overhead_time)"
             if DEBUG() && DEBUG() >= 3;
-        $profiler->(undef, $self->{period_start_time} + $self->{period_accumulated} + $overhead);
+        $profiler->(undef, $self->{period_start_time} + $self->{period_accumulated} + $overhead)
+            if $overhead; # don't add 'other' if there have been no actual samples
         # gets destroyed, and so counted, immediately.
     }
     $self->{period_start_time} = 0;
