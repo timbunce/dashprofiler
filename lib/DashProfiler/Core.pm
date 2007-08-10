@@ -29,11 +29,15 @@ use DBI::Profile;
 use DBI::ProfileDumper;
 use Carp;
 
+our $ENDING = 0;
 
 BEGIN {
     # use env var to control debugging at compile-time
     my $debug = $ENV{DASHPROFILER_CORE_DEBUG} || $ENV{DASHPROFILER_DEBUG} || 0;
     eval "sub DEBUG () { $debug }; 1;" or die; ## no critic
+}
+END {
+    $ENDING = 1;
 }
 
 
@@ -149,7 +153,7 @@ See the L</pepare> method for more information.
 
 =item period_exclusive
 
-When usng periods, via the start_sample_period() and end_sample_period() methods,
+When using periods, via the start_sample_period() and end_sample_period() methods,
 DashProfiler can add an additional sample representing the time between the
 start_sample_period() and end_sample_period() method calls that wasn't accounted for by the samples.
 
@@ -165,6 +169,10 @@ method and disabled by the end_sample_period() method.
 The mechanism enables a single profile to be used to capture both long-running
 sampling (for example in a web application, often with C<granularity> set)
 and single-period.
+
+=item profile_as_text_args
+
+A reference to a hash containing default formatting arguments for the profile_as_text() method.
 
 =back
 
@@ -188,6 +196,7 @@ sub new {
         granularity => 0,
         period_exclusive => undef,
         period_summary => undef,
+        profile_as_text_args => undef,
     };
     croak "Invalid options: ".join(', ', grep { !$opt_defaults->{$_} } keys %$opt_params)
         if keys %{ { %$opt_defaults, %$opt_params } } > keys %$opt_defaults;
@@ -318,7 +327,7 @@ sub get_dbi_profile {
     # we take care to avoid auto-viv here
     my $dbh = $dbi_handles->{ $name || 'main' };
     return $dbh->{Profile} if $dbh;
-    return unless $name eq '*';
+    return unless $name && $name eq '*';
     croak "get_dbi_profile('*') called in scalar context" unless wantarray;
     return map {
         ($_->{Profile}) ? ($_->{Profile}) : ()
@@ -349,11 +358,14 @@ Profile doesn't exist.
 sub profile_as_text {
     my $self = shift;
     my $name = shift;
-    my %args = %{ shift || {} };
-    my $dbi_profile = $self->get_dbi_profile($name) or return;
+    my $default_args = $self->{profile_as_text_args} || {};
+    my %args = (%$default_args, %{ shift || {} });
+
     $args{path}   ||= [ $self->{profile_name} ];
     $args{format} ||= '%1$s: dur=%11$f count=%10$d (max=%14$f avg=%2$f)'."\n";
     $args{separator} ||= ">";
+
+    my $dbi_profile = $self->get_dbi_profile($name) or return;
     return $dbi_profile->as_text(\%args);
 }
 
@@ -509,6 +521,24 @@ sub flush_if_due {
 }
 
 
+=head2 has_profile_data
+
+    $bool = $core->has_profile_data
+    $bool = $core->has_profile_data( $dbi_profile_name )
+
+Returns true if the named DBI Profile (default "main") contains any profile data.
+
+=cut
+
+sub has_profile_data {
+    my ($self, $dbi_profile_name) = @_;
+    my @dbi_profiles = $self->get_dbi_profile($dbi_profile_name)
+        or return undef; ## no critic
+    keys %{$_->{Data}||{}} && return 1 for (@dbi_profiles);
+    return 0;
+}
+
+
 =head2 start_sample_period
 
   $core->start_sample_period
@@ -550,7 +580,7 @@ sub start_sample_period {
 
 Marks the end of a series of related samples, e.g, within one http request.
 
-If C<exclusive_sampler> is enabled then a sample is added with a duration
+If C<period_exclusive> is enabled then a sample is added with a duration
 caclulated to be the time since start_sample_period() was called to now, minus
 the time accumulated by samples since start_sample_period() was called.
 
@@ -568,12 +598,14 @@ sub end_sample_period {
         carp "end_sample_period() called for $self->{profile_name} without preceeding start_sample_period()";
         $self->start_sample_period;
     }
-    if (my $profiler = $self->{exclusive_sampler}) {
+    if (my $profiler = $self->{exclusive_sampler} and
+        my $dbi_profile = $self->get_dbi_profile
+    ) {
         # add a sample with the start time forced to be period_start_time
         # shifted forward by the accumulated sample durations + sampling overheads.
         # This accounts for all the time between start_sample_period and
         # end_sample_period that hasn't been accounted for by normal samples.
-        dbi_profile_merge(my $total=[], $self->get_dbi_profile->{Data});
+        dbi_profile_merge(my $total=[], $dbi_profile->{Data});
         my $overhead = $sample_overhead_time * $total->[0];
         warn "$self->{name} period end: overhead ${overhead}s ($total->[0] * $sample_overhead_time)"
             if DEBUG() && DEBUG() >= 3;
@@ -627,6 +659,15 @@ sub prepare {
         # takes closure over $sample_class, %meta and $coderef
         $sample_class->$coderef(\%meta, @_)
     };
+}
+
+
+sub DESTROY {
+    my $self = shift;
+    # global destruction shouldn't be relied upon because often the
+    # dbi profile data will have been already destroyed
+    $self->end_sample_period() if $self->{period_start_time};
+    $self->flush if $self->has_profile_data("*");
 }
 
 

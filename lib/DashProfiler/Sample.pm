@@ -38,7 +38,7 @@ This method is normally only called by the code reference returned from the
 DashProfiler::Core prepare() method, and not directly.
 
     $sample = DashProfiler::Sample->new($meta, $context2);
-    $sample = DashProfiler::Sample->new($meta, $context2, $start_time);
+    $sample = DashProfiler::Sample->new($meta, $context2, $start_time, $allow_overlap);
 
 The returned object encapsulates the time of its creation and the supplied arguments.
 
@@ -50,16 +50,30 @@ If the $context2 is false then $meta->{_context2} is used instead.
 
 If $start_time false, which it normally is, then the value returned by dbi_time() is used instead.
 
+If $allow_overlap is false, which it normally is, then if the DashProfiler
+refered to by the 'C<_dash_profile>' element of %$meta is marked as 'in use'
+then a warning is given (just once) and C<new> returns undef, so no sample is
+taken.
+
+If $allow_overlap is true, then overlaping samples can be taken. However, if
+samples do overlap then C<period_exclusive> is disabled for that DashProfiler.
+
 =cut
 
 sub new {
-    my ($class, $meta, $context2, $start_time) = @_;
+    my ($class, $meta, $context2, $start_time, $allow_overlaping_use) = @_;
     my $profile_ref = $meta->{_dash_profile};
     return if $profile_ref->{disabled};
     if ($profile_ref->{in_use}++) {
-        Carp::cluck("$class $profile_ref->{profile_name} already active in outer scope")
-            unless $profile_ref->{in_use_warning_given}++; # warn once
-        return; # don't double count
+        if ($allow_overlaping_use) {
+            # can't use exclusive timer with nested samples
+            undef $profile_ref->{exclusive_sampler};
+        }
+        else {
+            Carp::cluck("$class $profile_ref->{profile_name} already active in outer scope")
+                unless $profile_ref->{in_use_warning_given}++; # warn once
+            return; # don't double count
+        }
     }
     # to help debug nested profile samples you can uncomment this
     # and remove the ++ from the if() above and tweak the cluck message

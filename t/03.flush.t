@@ -12,18 +12,18 @@ use DashProfiler::Core;
 
 my $flush_count = 0;
 
-my ($dp, $sampler1, @ary);
+our ($dp, $sampler1, @ary);
 
 $dp = DashProfiler::Core->new("flush", {
     flush_interval => 1_000_000,
     flush_hook => sub {
         my ($self, $dbi_profile_name) = @_;
         ++$flush_count;
-        is $self, $dp;
+        is $self, $main::dp; # avoid closure
         is $dbi_profile_name, undef;
         $self->reset_profile_data;
         return (42);
-    },
+    }
 });
 ok($dp);
 
