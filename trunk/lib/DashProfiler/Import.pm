@@ -10,6 +10,8 @@ use Carp;
 
 use DashProfiler;
 
+our $ExportLevel = 0;
+
 =head1 NAME
 
 DashProfiler::Import - Import curried DashProfiler sampler function at compile-time
@@ -65,7 +67,7 @@ That's because the condition is a compile-time constant.
 
 sub import {
     my $class = shift;
-    my $pkg = caller;
+    my $pkg = caller($ExportLevel);
 
     my $optional = 0;
 

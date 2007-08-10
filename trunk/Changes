@@ -8,24 +8,24 @@ Changes - Revision history for DashProfiler
 
 Measure overhead and subtract where appropriate, as far as possible, including from other.
 Flush at rollover (new profile node created - may not be reliable/safe)?
-Option to Flush only at period end
+Option to Flush (_if_due) only at period end
 Move DashProfiler::Dump* packages out to modules
 
-=head2 DashProfiler 1.04 - rXX - 2007
-
-  Require 5.008, just due to sprintf '%$N' usage in tests.
-  Made Scalar::Util::weaken optional.
-  Removed spool_directory (use dbi_profile_args => { Dir => ... } instead)
-  Set local $ENV{DBI_AUTOPROXY} to avoid risk of problems
-  Generalized get_dbi_profile() to take a '*'
-  start_sample_period and end_sample_period check for overlaps
-  end_sample_period now returns period_sample DBI Profile object not dbh
-  Changed semantics of flush_hook return value.
+=head2 DashProfiler 1.04 - r24 - Aug 10 2007
 
   Added :optional to DashProfiler::Import
   Added dbi_profile_args to pass extra args to dbi_profile_class->new().
   Added DashProfiler::Auto for simple uses, including one-liners
   Added lots of documentation.
+
+  Require perl 5.8 (just due to sprintf '%$N' usage in tests). Works for 5.6
+  Made Scalar::Util::weaken optional.
+  Removed spool_directory arg (use dbi_profile_args => { Dir => ... } instead)
+  Set local $ENV{DBI_AUTOPROXY} to avoid risk of problems
+  Generalized get_dbi_profile() to take a '*'
+  start_sample_period and end_sample_period check for overlaps
+  end_sample_period now returns period_sample DBI Profile object not dbh
+  Changed semantics of flush_hook return value.
 
 =head2 DashProfiler 1.03 - r15 - Jun 23 2007
 
