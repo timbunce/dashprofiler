@@ -6,18 +6,20 @@ Changes - Revision history for DashProfiler
 
 =cut
 
+TODO:
 Measure overhead and subtract where appropriate, as far as possible, including from other.
 Flush at rollover (new profile node created - may not be reliable/safe)?
 Option to Flush (_if_due) only at period end
 Move DashProfiler::Dump* packages out to modules DashProfiler::DumpTo::*
+Add DashProfiler::Apache to do handler plumbing for periods?
 
-=head2 DashProfiler 1.06 - r25 - Aug 10 2007
+=head2 DashProfiler 1.06 - r29 - Aug 14 2007
 
+  Fixed DashProfiler::Import :optionally to still export stubs
   Changed DashProfiler reset_all_profiles() to not call start_sample_period_all_profiles().
   Changed DashProfiler::Auto to use file name not full path.
   Changed DashProfiler::Core end_sample_period() to do nothing if no period is active.
-
-  Added more docs to UserGuide and Auto.
+  Added more docs, especially to UserGuide and Auto.
 
 =head2 DashProfiler 1.05 - r25 - Aug 10 2007
 

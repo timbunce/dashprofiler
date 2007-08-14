@@ -3,7 +3,7 @@ package DashProfiler;
 use strict;
 use warnings;
 
-our $VERSION = "1.05";
+our $VERSION = "1.06"; # $Revision:$
 
 =head1 NAME
 
@@ -25,6 +25,8 @@ Via DashProfiler::Import cost per call = 50,000/second, 0.000020s on modern box
 message that "it's fast" is)
 
 =head1 USE IN APACHE
+
+XXX needs more docs
 
 =head2 Example Apache mod_perl Configuration
 
