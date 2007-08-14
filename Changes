@@ -13,7 +13,10 @@ Move DashProfiler::Dump* packages out to modules DashProfiler::DumpTo::*
 
 =head2 DashProfiler 1.06 - r25 - Aug 10 2007
 
+  Changed DashProfiler reset_all_profiles() to not call start_sample_period_all_profiles().
   Changed DashProfiler::Auto to use file name not full path.
+  Changed DashProfiler::Core end_sample_period() to do nothing if no period is active.
+
   Added more docs to UserGuide and Auto.
 
 =head2 DashProfiler 1.05 - r25 - Aug 10 2007

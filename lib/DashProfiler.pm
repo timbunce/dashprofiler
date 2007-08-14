@@ -173,7 +173,6 @@ sub dump_all_profiles {
 =head2 reset_all_profiles
 
 Calls C<reset_profile_data> for all profiles.
-Then calls start_sample_period_all_profiles()
 
 Typically called from mod_perl PerlChildInitHandler.
 
@@ -181,7 +180,6 @@ Typically called from mod_perl PerlChildInitHandler.
 
 sub reset_all_profiles {    # eg PerlChildInitHandler
     $_->reset_profile_data for values %profiles;
-    start_sample_period_all_profiles();
 }
 
 
