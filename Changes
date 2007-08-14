@@ -9,7 +9,12 @@ Changes - Revision history for DashProfiler
 Measure overhead and subtract where appropriate, as far as possible, including from other.
 Flush at rollover (new profile node created - may not be reliable/safe)?
 Option to Flush (_if_due) only at period end
-Move DashProfiler::Dump* packages out to modules
+Move DashProfiler::Dump* packages out to modules DashProfiler::DumpTo::*
+
+=head2 DashProfiler 1.06 - r25 - Aug 10 2007
+
+  Changed DashProfiler::Auto to use file name not full path.
+  Added more docs to UserGuide and Auto.
 
 =head2 DashProfiler 1.05 - r25 - Aug 10 2007
 

@@ -52,9 +52,27 @@ the C<period_exclusive> summary is disabled.
 
 =head1 DESCRIPTION
 
-The DashProfiler::Auto is for quick temporary use of DashProfiler.
+The DashProfiler::Auto is designed for quick temporary use of DashProfiler.
 It avoids the need to create a profile by creating one for you with a typical
-configuration.
+configuration, and defining a I<sample period> from the time the module was
+loaded to the time the program exits.
+
+=head2 Profiler Configuration
+
+The default configuration is:
+
+    my $auto = DashProfiler->add_profile( auto => {
+        period_exclusive => 'other',
+        flush_hook => sub {
+            my ($self, $dbi_profile_name) = @_;
+            warn $_ for $self->profile_as_text($dbi_profile_name);
+            return $self->reset_profile_data($dbi_profile_name);
+        },
+    });
+
+B<*> C<period_exclusive> enables the automatic addition of a sample which measures the time I<not> accounted for by the samples. See L</Sample Periods> below.
+
+B<*> C<flush_hook> uses warn() to write out the profile data, then resets (discards) the data.
 
 =cut
 
@@ -70,7 +88,21 @@ my $auto = DashProfiler->add_profile( auto => {
     },
 });
 
-DashProfiler::Import->import( auto_profiler => [ "auto" ] );
+=head2 Sample Periods
+
+When the modle is loaded it creates the C<auto> profile and calls
+
+    $auto->start_sample_period();
+
+It also defines an C<END> block which does
+
+    $auto->end_sample_period();
+    $auto->flush;
+
+so the sample period runs from the time the module was loaded (typically when
+the program started running) through to the time the program exits.
+
+=cut
 
 $auto->start_sample_period();
 
@@ -79,6 +111,18 @@ END {
     $auto->flush;
 }
 
+
+=head2 Imported Samplers
+
+Using DashProfile::Auto in a file like this:
+
+    use DashProfiler::Auto;
+
+is almost identical to this:
+
+    use DashProfiler::Import auto_profiler => [ basename(__FILE__) ];
+
+=cut
 
 sub import {
     my $class = shift;
@@ -89,6 +133,7 @@ sub import {
     local $DashProfiler::Import::ExportLevel = $DashProfiler::Import::ExportLevel + 1;
 
     my $caller_file = (caller)[1];
+    $caller_file =~ s:.*[/\\]::; # delete everything upto and including the last slash or backslash
     $class->SUPER::import( auto_profiler => [ $caller_file ] );
 }   
 
