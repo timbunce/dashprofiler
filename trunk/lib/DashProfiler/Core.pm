@@ -580,6 +580,9 @@ sub start_sample_period {
 
 Marks the end of a series of related samples, e.g, within one http request.
 
+If start_sample_period() was not called for this core then end_sample_period()
+just returns undef.
+
 If C<period_exclusive> is enabled then a sample is added with a duration
 caclulated to be the time since start_sample_period() was called to now, minus
 the time accumulated by samples since start_sample_period() was called.
@@ -595,8 +598,8 @@ See also L</start_sample_period>, C<period_summary> and L</propagate_period_coun
 sub end_sample_period {
     my $self = shift;
     if (not $self->{period_start_time}) {
-        carp "end_sample_period() called for $self->{profile_name} without preceeding start_sample_period()";
-        $self->start_sample_period;
+        carp "end_sample_period() ignored for $self->{profile_name} without preceeding start_sample_period()" if DEBUG();
+        return undef;
     }
     if (my $profiler = $self->{exclusive_sampler} and
         my $dbi_profile = $self->get_dbi_profile

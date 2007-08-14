@@ -19,8 +19,8 @@ The core of DashProfiler are DashProfiler::Core objects, naturally.
 
 The L<DashProfiler> module provides a by-name interface to L<DashProfiler::Core> objects
 to avoid needing to manage object references yourself. Most DashProfiler::Core
-methods have corresponding DashProfiler function that take a name as the first
-argument.
+object methods have corresponding DashProfiler static methods that take a profiler name
+as the first argument.
 
                              DashProfiler
                                   |
