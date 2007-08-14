@@ -1,0 +1,50 @@
+=head1 NAME
+
+Changes - Revision history for DashProfiler
+
+=head1 RELEASES
+
+=cut
+
+TODO:
+Measure overhead and subtract where appropriate, as far as possible, including from other.
+Flush at rollover (new profile node created - may not be reliable/safe)?
+Option to Flush (_if_due) only at period end
+Move DashProfiler::Dump* packages out to modules DashProfiler::DumpTo::*
+Add DashProfiler::Apache to do handler plumbing for periods?
+
+=head2 DashProfiler 1.06 - r29 - Aug 14 2007
+
+  Fixed DashProfiler::Import :optionally to still export stubs
+  Changed DashProfiler reset_all_profiles() to not call start_sample_period_all_profiles().
+  Changed DashProfiler::Auto to use file name not full path.
+  Changed DashProfiler::Core end_sample_period() to do nothing if no period is active.
+  Added more docs, especially to UserGuide and Auto.
+
+=head2 DashProfiler 1.05 - r25 - Aug 10 2007
+
+  Added :optional to DashProfiler::Import
+  Added dbi_profile_args to pass extra args to dbi_profile_class->new().
+  Added DashProfiler::Auto for simple uses, including one-liners
+  Added lots of documentation.
+
+  Require perl 5.8 (just due to sprintf '%$N' usage in tests). Works for 5.6
+  Made Scalar::Util::weaken optional.
+  Removed spool_directory arg (use dbi_profile_args => { Dir => ... } instead)
+  Set local $ENV{DBI_AUTOPROXY} to avoid risk of problems
+  Generalized get_dbi_profile() to take a '*'
+  start_sample_period and end_sample_period check for overlaps
+  end_sample_period now returns period_sample DBI Profile object not dbh
+  Changed semantics of flush_hook return value.
+
+=head2 DashProfiler 1.03 - r15 - Jun 23 2007
+
+  Fix flush_hook attribute in flush(),
+  Make Hash::Util optional.
+  Make Perl::Critic optional.
+
+=head2 DashProfiler 1.02 - r12 - Jun 21 2007
+
+  First full release (1.01 was incomplete)
+
+=cut
