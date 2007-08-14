@@ -639,6 +639,10 @@ In effect the prepare() method creates a 'factory'.
 The sampler objects created by the returned code reference are pre-set to use
 $context1, and optionally $context2, as their context values.
 
+If the appropriate value for C<context2> won't be available until the end of
+the sample you can set $context2 to a code reference. The reference will be
+executed at the end of the sample. See L<DashProfiler::Sample>.
+
 XXX needs more info about %meta - see the code for now, it's not very complex.
 
 See L<DashProfiler::Sample> for more information.

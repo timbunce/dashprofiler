@@ -96,12 +96,14 @@ When the DashProiler::Sample object is destroyed it:
 
  - adds the timespan of the sample to the 'period_accumulated' of the DashProiler
 
- - extracts context2 from the DashProiler::Sample object
-
- - if $meta (passed to new()) contained a 'C<context2edit>' code reference
-   then it's called and passed context2 and $meta. The return value is used
-   and context2. This is very useful where the value of context2 can't be determined
+ - extracts context2 from the DashProiler::Sample object. If it's a code reference
+   then it's executed and the return value is used as context2.
+   This is very useful where the value of context2 can't be determined
    at the time the sample is started.
+
+ - if the $meta hash reference (passed to new()) contained a 'C<context2edit>'
+   code reference then it's called and passed context2 and $meta.
+   The return value is used as context2.
 
  - calls DBI::Profile::dbi_profile(handle, context1, context2, start time, end time)
    for each DBI profile currently attached to the DashProiler.
@@ -121,8 +123,10 @@ sub DESTROY {
     undef $profile_ref->{in_use};
     $profile_ref->{period_accumulated} += $end_time - $start_time;
 
-    my $context2edit = $meta->{context2edit} || (ref $context2 eq 'CODE' ? $context2 : undef);
-    $context2 = $context2edit->($context2, $meta) if $context2edit;
+    $context2 = $context2->($meta) if ref $context2 eq 'CODE';
+
+    $context2 = $meta->{context2edit}->($context2, $meta)
+        if ref $meta->{context2edit} eq 'CODE';
 
     carp(sprintf "%s: %s %s: %f - %f = %f",
         $profile_ref->{profile_name}, $meta->{_context1}, $context2, $start_time, $end_time, $end_time-$start_time

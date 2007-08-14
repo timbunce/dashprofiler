@@ -23,7 +23,7 @@ DashProfiler::Import - Import curried DashProfiler sampler function at compile-t
   use DashProfiler::Import foo_profiler => [ "my context 1" ],
                            bar_profiler => [ "my context 1", context2edit => sub { ... } ];
 
-  use DashProfiler::Import :optional baz_profiler => [ "my context 1" ];
+  use DashProfiler::Import ':optional', baz_profiler => [ "my context 1" ];
 
   ...
   my $sample = foo_profiler("baz");
@@ -93,12 +93,12 @@ sub import {
         if (!$profile) {
             croak "No profile called '$profile_name' has been defined"
                 unless $optional;
-            next;
+            # fall-thru to check args and create stubs
         }
 
         croak "$var_name => ... requires an array ref containing at least one element"
             unless ref $args eq 'ARRAY' and @$args >= 1;
-        my $profiler = $profile->prepare(@$args);
+        my $profiler = ($profile) ? $profile->prepare(@$args) : undef;
 
         #warn "$pkg $var_name ($profile_name) => $context1 $profiler";
         {
