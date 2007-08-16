@@ -23,7 +23,7 @@ DashProfiler::Import - Import curried DashProfiler sampler function at compile-t
   use DashProfiler::Import foo_profiler => [ "my context 1" ],
                            bar_profiler => [ "my context 1", context2edit => sub { ... } ];
 
-  use DashProfiler::Import ':optional', baz_profiler => [ "my context 1" ];
+  use DashProfiler::Import -optional, baz_profiler => [ "my context 1" ];
 
   ...
   my $sample = foo_profiler("baz");
@@ -50,7 +50,7 @@ Because the C<*_profiler_enabled> function is a constant, the perl compiler
 will completely remove the code if the corresponding DashProfiler is disabled.
 
 If there is no DashProfiler called "foo" then you'll get a compile-time error
-unless the C<:optional> directive has been given first.
+unless the C<-optional> directive has been given first.
 
 Generally this style of code in perl is considered bad practice and error prone:
 
@@ -74,8 +74,8 @@ sub import {
     while (@_) {
         local $_ = shift;
 
-        if (m/^:\w+/) {
-            if ($_ eq ':optional') {
+        if (m/^[-:](\w+)/) { # the ':optional' form is deprecated
+            if ($1 eq 'optional') {
                 $optional = 1;
             }
             else {
