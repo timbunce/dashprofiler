@@ -468,7 +468,7 @@ sub propagate_period_count {
     # force count of all nodes to be count of periods instead of samples
     my $count = $self->{period_count}
         or return 0;
-    warn "propagate_period_count $self->{profile_name} count $count" if DEBUG();
+    warn "propagate_period_count $self->{profile_name} count $count\n" if DEBUG();
     # force count of all nodes to be count of periods
     $self->visit_profile_nodes($dbi_profile_name, sub { return unless ref $_[0] eq 'ARRAY'; $_[0]->[0] = $count });
     return $count;
@@ -655,7 +655,7 @@ sub end_sample_period {
         # end_sample_period that hasn't been accounted for by normal samples.
         dbi_profile_merge(my $total=[], $dbi_profile->{Data});
         my $overhead = $sample_overhead_time * $total->[0];
-        warn "$self->{name} period end: overhead ${overhead}s ($total->[0] * $sample_overhead_time)"
+        warn "$self->{name} period end: overhead ${overhead}s ($total->[0] * $sample_overhead_time)\n"
             if DEBUG() && DEBUG() >= 3;
         $profiler->(undef, $self->{period_start_time} + $self->{period_accumulated} + $overhead)
             if $overhead; # don't add 'other' if there have been no actual samples
