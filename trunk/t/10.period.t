@@ -85,6 +85,14 @@ $dp = DashProfiler::Core->new("dp3", {
         return 1;
     },
 });
+
+# initial do-nothing edge-cases
+is $dp->get_dbi_profile->{Data}, undef;
+$dp->propagate_period_count(); # shouldn't fail
+$dp->start_sample_period;
+$dp->propagate_period_count(); # shouldn't fail
+$dp->end_sample_period;
+
 $sampler = $dp->prepare("c1");
 for (1..2) {    # 200 samples over 2 periods
     $dp->start_sample_period;

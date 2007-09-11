@@ -419,8 +419,11 @@ in all the attached profiles are visited.
 sub visit_profile_nodes {
     my ($self, $dbi_profile_name, $sub) = @_;
     my @dbi_profiles = $self->get_dbi_profile($dbi_profile_name);
-    $self->_visit_nodes($_->{Data}, undef, $sub)
-        for (@dbi_profiles);
+    for my $dbi_profile (@dbi_profiles) {
+        my $data = $dbi_profile->{Data}
+            or next;
+        $self->_visit_nodes($data, undef, $sub)
+    }
     return;
 }
 
