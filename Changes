@@ -13,9 +13,9 @@ Option to Flush (_if_due) only at period end
 Move DashProfiler::Dump* packages out to modules DashProfiler::DumpTo::*
 Extend DashProfiler::Apache to do handler plumbing for periods?
 
-=head2 DashProfiler 1.08 - rXXX - XXX
+=head2 DashProfiler 1.08 - r36 - Sept 11 2007
 
-  Fixed fatal error in visit_profile_nodes for DBI profiles with no Data.
+  Fixed fatal error in visit_profile_nodes() for DBI profiles with no Data.
 
   Changed propagate_period_count() to not reset period_count.
   Changed to increment period_count in end_sample_period() not start_sample_period().
