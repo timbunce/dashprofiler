@@ -87,7 +87,8 @@ $dp = DashProfiler::Core->new("dp3", {
 });
 
 # initial do-nothing edge-cases
-is $dp->get_dbi_profile->{Data}, undef;
+my $dbi_profile = $dp->get_dbi_profile();
+is $dbi_profile->{Data}, undef;
 $dp->propagate_period_count(); # shouldn't fail
 $dp->start_sample_period;
 $dp->propagate_period_count(); # shouldn't fail
@@ -99,13 +100,12 @@ for (1..2) {    # 200 samples over 2 periods
     $sampler->("c2") for (1..100);
     $dp->end_sample_period;
 }
-my $dbi_profile = $dp->get_dbi_profile();
 #warn Dumper($dbi_profile);
 is $dbi_profile->{Data}{1000000000}{c1}{c2}[0], 200;
-is $dbi_profile->{Data}{1000000000}{ex}{ex}[0], 2;
+is $dbi_profile->{Data}{1000000000}{ex}{ex}[0], 2; # not three because one period had no counts
 $dp->propagate_period_count();
-is $dbi_profile->{Data}{1000000000}{c1}{c2}[0], 2;
-is $dbi_profile->{Data}{1000000000}{ex}{ex}[0], 2;
+is $dbi_profile->{Data}{1000000000}{c1}{c2}[0], 3;
+is $dbi_profile->{Data}{1000000000}{ex}{ex}[0], 3;
 
 $dp->reset_profile_data;
 
