@@ -196,7 +196,10 @@ sub new {
         granularity => 0,
         period_exclusive => undef,
         period_summary => undef,
+        period_strict_start  => 0x01,
+        period_strict_end    => 0x00,
         profile_as_text_args => undef,
+        extra_info => undef, # for caller to hook in their own data
     };
     croak "Invalid options: ".join(', ', grep { !$opt_defaults->{$_} } keys %$opt_params)
         if keys %{ { %$opt_defaults, %$opt_params } } > keys %$opt_defaults;
@@ -213,8 +216,6 @@ sub new {
         period_count         => 0,
         period_start_time    => 0,
         period_accumulated   => 0,
-        period_strict_start  => 0x01,
-        period_strict_end    => 0x00,
         exclusive_sampler    => undef,
         %$opt_defaults,
         %$opt_params,
@@ -560,6 +561,8 @@ determines the actions taken:
   4 = call end_sample_period(), silently
   5 = call end_sample_period() and issue a warning
 
+If the value is a CODE ref then it's called (and passed $core) and the return value used.
+
 Resets the C<period_accumulated> attribute to zero.
 Sets C<period_start_time> to the current dbi_time().
 If C<period_summary> is enabled then the period_summary DBI Profile is enabled and reset.
@@ -574,6 +577,7 @@ sub start_sample_period {
     # see end_sample_period()
     if ($self->{period_start_time}) {
         if (my $strictness = $self->{period_strict_start}) {
+            $strictness = $strictness->($self) if ref $strictness eq 'CODE';
             carp "start_sample_period() called for $self->{profile_name} without preceeding end_sample_period()"
                 if $strictness & 0x01;
             return
@@ -608,6 +612,7 @@ C<period_strict_end> attribute determines the actions taken:
   2 = call start_sample_period(), silently
   3 = call start_sample_period() and warn
 
+If the value is a CODE ref then it's called (and passed $core) and the return value used.
 If start_sample_period() isn't called then end_sample_period() just returns.
 
 The C<period_count> attribute is incremented.
@@ -629,6 +634,7 @@ sub end_sample_period {
 
     if (not $self->{period_start_time}) {
         if (my $strictness = $self->{period_strict_end}) {
+            $strictness = $strictness->($self) if ref $strictness eq 'CODE';
             carp "end_sample_period() called for $self->{profile_name} without preceeding start_sample_period()"
                 if $strictness & 0x01;
             $self->start_sample_period()
