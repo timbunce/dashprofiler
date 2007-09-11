@@ -213,6 +213,8 @@ sub new {
         period_count         => 0,
         period_start_time    => 0,
         period_accumulated   => 0,
+        period_strict_start  => 0x01,
+        period_strict_end    => 0x00,
         exclusive_sampler    => undef,
         %$opt_defaults,
         %$opt_params,
@@ -438,7 +440,7 @@ reset_profile_data().
 
 If $dbi_profile_name is "*" then counts in all attached profiles are set.
 
-Resets the period count to zero and returns the previous count.
+Resets the period count used.
 
 Does nothing but return 0 if the the period count is zero.
 
@@ -468,7 +470,6 @@ sub propagate_period_count {
     warn "propagate_period_count $self->{profile_name} count $count" if DEBUG();
     # force count of all nodes to be count of periods
     $self->visit_profile_nodes($dbi_profile_name, sub { return unless ref $_[0] eq 'ARRAY'; $_[0]->[0] = $count });
-    $self->{period_count} = 0;
     return $count;
 }
 
@@ -548,7 +549,17 @@ sub has_profile_data {
 
 Marks the start of a series of related samples, e.g, within one http request.
 
-Increments the C<period_count> attribute.
+If end_sample_period() has not been called for this core since the last
+start_sample_period() then the value of the C<period_strict_start> attribute
+determines the actions taken:
+
+  0 = restart the period, silently
+  1 = restart the period and issue a warning (this is the default)
+  2 = continue the current period, silently
+  3 = continue the current period and issue a warning
+  4 = call end_sample_period(), silently
+  5 = call end_sample_period() and issue a warning
+
 Resets the C<period_accumulated> attribute to zero.
 Sets C<period_start_time> to the current dbi_time().
 If C<period_summary> is enabled then the period_summary DBI Profile is enabled and reset.
@@ -562,15 +573,20 @@ sub start_sample_period {
     # marks the start of a series of related samples, e.g, within one http request
     # see end_sample_period()
     if ($self->{period_start_time}) {
-        carp "start_sample_period() called for $self->{profile_name} without preceeding end_sample_period()";
-        $self->end_sample_period();
+        if (my $strictness = $self->{period_strict_start}) {
+            carp "start_sample_period() called for $self->{profile_name} without preceeding end_sample_period()"
+                if $strictness & 0x01;
+            return
+                if $strictness & 0x02;
+            $self->end_sample_period()
+                if $strictness & 0x04;
+        }
     }
     if (my $period_summary_h = $self->{dbi_handles_all}{period_summary}) {
         # ensure period_summary_h dbi profile will receive samples
         $self->{dbi_handles_active}{period_summary} = $period_summary_h;
         $period_summary_h->{Profile}->empty; # start period empty
     }
-    $self->{period_count}++;
     $self->{period_accumulated} = 0;
     $self->{period_start_time}  = dbi_time();
     return;
@@ -583,8 +599,18 @@ sub start_sample_period {
 
 Marks the end of a series of related samples, e.g, within one http request.
 
-If start_sample_period() was not called for this core then end_sample_period()
-just returns undef.
+If start_sample_period() has not been called for this core since the last
+end_sample_period() (or the start of the script) then the value of the
+C<period_strict_end> attribute determines the actions taken:
+
+  0 = do nothing, silently (this is the default)
+  1 = do nothing but warn
+  2 = call start_sample_period(), silently
+  3 = call start_sample_period() and warn
+
+If start_sample_period() isn't called then end_sample_period() just returns.
+
+The C<period_count> attribute is incremented.
 
 If C<period_exclusive> is enabled then a sample is added with a duration
 caclulated to be the time since start_sample_period() was called to now, minus
@@ -600,10 +626,20 @@ See also L</start_sample_period>, C<period_summary> and L</propagate_period_coun
 
 sub end_sample_period {
     my $self = shift;
+
     if (not $self->{period_start_time}) {
-        carp "end_sample_period() ignored for $self->{profile_name} without preceeding start_sample_period()" if DEBUG();
-        return undef;
+        if (my $strictness = $self->{period_strict_end}) {
+            carp "end_sample_period() called for $self->{profile_name} without preceeding start_sample_period()"
+                if $strictness & 0x01;
+            $self->start_sample_period()
+                if $strictness & 0x02;
+        }
+        # return if we didn't start a period
+        return if not $self->{period_start_time};
     }
+
+    $self->{period_count}++;
+
     if (my $profiler = $self->{exclusive_sampler} and
         my $dbi_profile = $self->get_dbi_profile
     ) {
