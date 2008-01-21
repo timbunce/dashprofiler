@@ -70,7 +70,7 @@ sub new {
             undef $profile_ref->{exclusive_sampler};
         }
         else {
-            Carp::cluck("$class $profile_ref->{profile_name} already active in outer scope")
+            Carp::cluck("$class $profile_ref->{profile_name} already active")
                 unless $profile_ref->{in_use_warning_given}++; # warn once
             return; # don't double count
         }
@@ -83,6 +83,20 @@ sub new {
         $context2   || $meta->{_context2},
         $start_time || dbi_time(), # do this as late as practical
     ] => $class;
+}
+
+
+=head2 current_sample_duration
+
+  $ps = foo_profiler(...);
+  my $duration = $ps->current_sample_duration();
+
+Returns the amount of time since the sample was created.
+
+=cut
+
+sub current_sample_duration {
+    return shift->[2] - dbi_time();
 }
 
 
@@ -115,7 +129,9 @@ sub DESTROY {
 
     # Any fatal errors won't be reported because we're in a DESTROY.
     # This can make debugging hard. If you suspect a problem then uncomment this:
-    local $SIG{__DIE__} = sub { warn @_ } if DEBUG(); ## no critic
+    #local $SIG{__DIE__} = sub { warn @_ } if DEBUG(); ## no critic
+    # Note that throwing an exception can be used by the context2edit hook
+    # to 'veto' the sample.
 
     my ($meta, $context2, $start_time) = @{+shift};
 
@@ -123,8 +139,8 @@ sub DESTROY {
     undef $profile_ref->{in_use};
     $profile_ref->{period_accumulated} += $end_time - $start_time;
 
-    $context2 = $context2->($meta) if ref $context2 eq 'CODE';
-
+    $context2 = $context2->($meta)
+        if ref $context2 eq 'CODE';
     $context2 = $meta->{context2edit}->($context2, $meta)
         if ref $meta->{context2edit} eq 'CODE';
 

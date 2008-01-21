@@ -12,6 +12,16 @@ Flush at rollover (new profile node created - may not be reliable/safe)?
 Option to Flush (_if_due) only at period end
 Move DashProfiler::Dump* packages out to modules DashProfiler::DumpTo::*
 Extend DashProfiler::Apache to do handler plumbing for periods?
+Ponder workaround for systems with clocks that go backwards
+    such as cygwin http://www.nntp.perl.org/group/perl.cpan.testers/2007/09/msg630399.html
+
+Make period_start_time available: document as hash elem or add an accessor method (get_*?)
+
+=head2 DashProfiler
+
+add way to get names of all profiles from DastProfile.pm
+add test for throwing an exception in context2edit as way to veto sample - and docment
+Look into how/why exclusive period can be negative (eg in SZ data)
 
 =head2 DashProfiler 1.08 - r36 - Sept 11 2007
 

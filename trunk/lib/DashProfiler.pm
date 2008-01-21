@@ -20,35 +20,22 @@ See L<DashProfiler::UserGuide> for a general introduction.
 
 =head1 DESCRIPTION
 
-Via DashProfiler::Import cost per call = 50,000/second, 0.000020s on modern box
-(not accurate to realworld situations because of L2 caching, but the general
-message that "it's fast" is)
+=head2 Performance
 
-=head1 USE IN APACHE
+DashProfiler is fast, very fast. Especially given the functionality and flexibility it offers.
 
-XXX needs more docs
+When you build DashProfiler, the test suite shows the performance on your
+system when you run "make test". On my system, for example it reports:
 
-=head2 Example Apache mod_perl Configuration
+    t/02.sample....... you're using perl 5.008006 on darwin-thread-multi-2level
+      Average 'hot' sample overhead is  0.000029s (max 0.000240s, min 0.000028s)
+      Average 'cold' sample overhead is 0.000034s (max 0.000094s, min 0.000030s)
 
-    <Perl>
-    BEGIN {
-        # create profile early so other code can use DashProfiler::Import
-        use DashProfiler;
-        # files will be written to $spool_directory/dashprofiler.subsys.ppid.pid
-        DashProfiler->add_profile('subsys', {
-            granularity => 30,
-            flush_interval => 60,
-            add_exclusive_sample => 'other',
-            spool_directory => '/tmp', # needs write permission for apache user
-        });
-    }
-    </Perl>
+=head2 Apache mod_perl
 
-    # hook DashProfiler into appropriate mod_perl handlers
-    PerlChildInitHandler DashProfiler::reset_all_profiles
-    PerlPostReadRequestHandler DashProfiler::start_sample_period_all_profiles
-    PerlCleanupHandler DashProfiler::end_sample_period_all_profiles
-    PerlChildExitHandler DashProfiler::flush_all_profiles
+DashProfiler was designed to work well with Apache mod_perl in high volume production environments.
+
+Refer to L<DashProfiler::Apache> for details.
 
 =cut
 
@@ -56,13 +43,6 @@ use Carp;
 use Data::Dumper;
 
 use DashProfiler::Core;
-
-
-# PerlChildInitHandler - clear data in all profiles
-# PerlChildExitHandler - save_to_disk all profiles
-# PerlPostReadRequestHandler - store hi-res timestamp in a pnote
-# PerlLogHandler - add sample for 'other' as time since start of request - duration_accumulated
-#   save_to_disk() if not saved within last N seconds
 
 my %profiles;
 
@@ -228,5 +208,18 @@ sub end_sample_period_all_profiles { # eg PerlCleanupHandler
     $_->flush_if_due      for values %profiles;
 }
 
+=head1 AUTHOR
+
+DashProfiler by Tim Bunce, L<http://www.tim.bunce.name>
+
+=head1 COPYRIGHT
+
+The DBI module is Copyright (c) 2007-2008 Tim Bunce. Ireland.
+All rights reserved.
+
+You may distribute under the terms of either the GNU General Public
+License or the Artistic License, as specified in the Perl README file.
+
+=cut
 
 1;
