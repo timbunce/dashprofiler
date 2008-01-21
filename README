@@ -1,23 +1,23 @@
-DashProfiler version 1.01
+DashProfiler
 
 INSTALLATION
 
 To install this module, run the following commands:
 
-    perl Build.PL
-    ./Build
-    ./Build test
-    ./Build install
+    perl Makefile.PL
+    make
+    make test
+    make install
 
 
 DEPENDENCIES
 
-None.
+    DBI >= 1.57
 
 
 COPYRIGHT AND LICENCE
 
-Copyright (C) 2007, Tim Bunce
+Copyright (C) 2008, Tim Bunce
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

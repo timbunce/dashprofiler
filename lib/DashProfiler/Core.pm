@@ -84,6 +84,7 @@ if (0) {    # calculate approximate (minimum) sample overhead time
     $profile->reset_profile_data;
 }
 
+=head1 CLASS METHODS
 
 =head2 new
 
@@ -96,37 +97,39 @@ if (0) {    # calculate approximate (minimum) sample overhead time
       flush_interval => 300,
   } );
 
-Creates DashProfiler::Core objects. These should normally created very early in
-the life of the program, especially when using DashProfiler::Import.
+Creates and returns a DashProfiler::Core object.
 
-=head3 Options
+=head2 Options for new()
 
-=over 4
+=head3 disabled
 
-=item disabled
+Set to a true value to prevent samples being added to this core. If true, the
+prepare() method and the L<DashProfiler::Sample> new() method will return undef.
 
-Set to a true value to prevent samples being added to this core.
-Especially relevant for DashProfiler::Import where disabling
-.
 Default false.
 
-=item dbi_profile_class
+Currently, any existing samples that were active will still be added when they
+terminate. This behaviour may change.
+
+See also L<DashProfiler::Import>.
+
+=head3 dbi_profile_class
 
 Specifies the class to use for creating DBI::Profile objects.
 The default is C<DBI::Profile>. Alternatives include C<DBI::ProfileDumper>
 and C<DBI::ProfileDumper::Apache>.
 
-=item dbi_profile_args
+=head3 dbi_profile_args
 
 Specifies extra arguments to pass the new() method of the C<dbi_profile_class>
 (e.g., C<DBI::Profile>). The default is C<{ }>.
 
-=item flush_interval
+=head3 flush_interval
 
 How frequently the DBI:Profiles associated with this core should be written out
 and the data reset. Default is 0 - no regular flushing.
 
-=item flush_hook
+=head3 flush_hook
 
 If set, this code reference is called when flush() is called and can influence
 its behaviour. For example, this is the flush_hook used by L<DashProfiler::Auto>:
@@ -139,19 +142,19 @@ its behaviour. For example, this is the flush_hook used by L<DashProfiler::Auto>
 
 See L</flush> for more details.
 
-=item granularity
+=head3 granularity
 
 The default C<Path> for the DBI::Profile objects doesn't include time.
 The granularity option adds 'C<!Time~$granularity>' to the front of the Path.
 So as time passes the samples are aggregated into new sub-trees.
 
-=item sample_class
+=head3 sample_class
 
 The sample_class option specifies which class should be used to take profile samples.
 The default is C<DashProfiler::Sample>.
 See the L</prepare> method for more information.
 
-=item period_exclusive
+=head3 period_exclusive
 
 When using periods, via the start_sample_period() and end_sample_period() methods,
 DashProfiler can add an additional sample representing the time between the
@@ -160,7 +163,7 @@ start_sample_period() and end_sample_period() method calls that wasn't accounted
 The period_exclusive option enables this extra sample. The value of the option
 is used as the value for key1 and key2 in the Path.
 
-=item period_summary
+=head3 period_summary
 
 Specifies the name of the extra DBI Profile object to attach to the core.
 This extra 'period summary' profile is enabled and reset by the start_sample_period()
@@ -170,12 +173,21 @@ The mechanism enables a single profile to be used to capture both long-running
 sampling (for example in a web application, often with C<granularity> set)
 and single-period.
 
-=item profile_as_text_args
+=head3 period_strict_start
+
+See L</start_sample_period>.
+
+=head3 period_strict_end
+
+See L</end_sample_period>.
+
+=head3 profile_as_text_args
 
 A reference to a hash containing default formatting arguments for the profile_as_text() method.
 
-=back
+=head3 extra_info
 
+Can be used to attach any extra information to the profiler core object. That can be useful sometimes in callbacks.
 
 =cut
 
@@ -242,6 +254,8 @@ sub new {
     return $self;
 }
 
+
+=head1 OBJECT METHODS
 
 =head2 attach_dbi_profile
 
@@ -431,7 +445,7 @@ sub visit_profile_nodes {
 }
 
 
-=head2 propagate_period_count {
+=head2 propagate_period_count
 
   $core->propagate_period_count( $dbi_profile_name )
 
@@ -567,7 +581,7 @@ Resets the C<period_accumulated> attribute to zero.
 Sets C<period_start_time> to the current dbi_time().
 If C<period_summary> is enabled then the period_summary DBI Profile is enabled and reset.
 
-See also L</end_sample_period>, C<period_summary> and L</propagate_period_count>.
+See also L</end_sample_period>, the C<period_summary> option, and L</propagate_period_count>.
 
 =cut
 
@@ -707,8 +721,7 @@ sub prepare {
     $meta{_context2}     = $context2;
     # skip method lookup
     my $coderef = $sample_class->can("new") || "new";
-    return sub {
-        # takes closure over $sample_class, %meta and $coderef
+    return sub { # closure over $sample_class, %meta and $coderef
         $sample_class->$coderef(\%meta, @_)
     };
 }

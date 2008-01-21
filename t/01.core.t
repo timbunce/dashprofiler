@@ -54,7 +54,7 @@ do {
     my $ps1a = $sampler1->("c3");
     is $ps1a, undef;
     is scalar @warn, 1, 'should generate one warning';
-    like $warn[0], qr/^DashProfiler::Sample dp1 already active in outer scope/;
+    like $warn[0], qr/^DashProfiler::Sample dp1 already active/;
 };
 undef $ps1;
 

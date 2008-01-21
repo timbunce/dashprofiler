@@ -35,6 +35,29 @@ Or you can define your own, like this:
 
 =head1 DESCRIPTION
 
+=head2 Example Apache mod_perl Configuration
+
+    <Perl>
+    BEGIN {
+        # create profile early so other code can use DashProfiler::Import
+        use DashProfiler;
+        # files will be written to $spool_directory/dashprofiler.subsys.ppid.pid
+        DashProfiler->add_profile('subsys', {
+            granularity => 30,
+            flush_interval => 60,
+            add_exclusive_sample => 'other',
+            spool_directory => '/tmp', # needs write permission for apache user
+        });
+    }
+    </Perl>
+
+    # hook DashProfiler into appropriate mod_perl handlers
+    PerlChildInitHandler DashProfiler::reset_all_profiles
+    PerlPostReadRequestHandler DashProfiler::start_sample_period_all_profiles
+    PerlCleanupHandler DashProfiler::end_sample_period_all_profiles
+    PerlChildExitHandler DashProfiler::flush_all_profiles
+
+
 XXX NOT IMPLEMENTED YET
 
 For now you can use DashProfiler with Apache by adding these lines
@@ -53,6 +76,11 @@ force start_sample_period_all_profiles to be the first PerlPostReadRequestHandle
 called, and end_sample_period_all_profiles to be the last PerlCleanupHandler called.
 
 =cut
+
+sub start_sample_period_all_profiles {
+    my $r = shift;
+
+}
 
 
 1;
