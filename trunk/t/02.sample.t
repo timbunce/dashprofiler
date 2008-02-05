@@ -29,10 +29,21 @@ if (@diffs) {
 # prepare a new sampler
 my $sampler1 = $dp1->prepare("c1");
 
+my @sample_times;
+my $sample = $sampler1->("and warm the cache");
+sleep 1;
+cmp_ok $sample->current_sample_duration, '>=', 0.5,
+    'current_sample_duration should be > 0.5';
+cmp_ok $sample->current_sample_duration, '<', 2,
+    'current_sample_duration should be < 2';
+undef $sample; # end sample
+
+sleep 1; # needed to keep output tidy, odd
+
+# report version and archname for the record, also moves cursor
+# to a new line for the sample overhead reports below
 warn " you're using perl $] on $Config::Config{archname}\n";
 
-my @sample_times;
-$sampler1->("warm"); # warm the cache
 for (my $i=1_000; $i--;) {
     my $t1 = dbi_time();
     my $ps1 = $sampler1->("spin");
@@ -44,7 +55,7 @@ warn sprintf " Average 'hot' sample overhead is  %.6fs (max %.6fs, min %.6fs)\n"
 $dp1->reset_profile_data;
 
 @sample_times = ();
-for (my $i=1_00; $i--;) {
+for (my $i=100; $i--;) {
     my $t1 = dbi_time();
     my $ps1 = $sampler1->("spin");
     undef $ps1;

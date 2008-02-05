@@ -410,7 +410,7 @@ sub reset_profile_data {
 sub _visit_nodes {  # depth first with lexical ordering
     my ($self, $node, $path, $sub) = @_;
     croak "No sub ref given" unless ref $sub eq 'CODE';
-    croak "No node ref given" unless ref $node;
+    return unless $node;
     $path ||= [];
     if (ref $node eq 'HASH') {    # recurse
         $path = [ @$path, undef ];
