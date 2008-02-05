@@ -393,7 +393,7 @@ sub profile_as_text {
 
 Resets (discards) DBI Profile data and resets the period count to 0.
 If $dbi_profile_name is false then it defaults to "main".
-If $dbi_profile_name is false "*" then all attached profiles are reset.
+If $dbi_profile_name is "*" then all attached profiles are reset.
 Returns a list of the affected DBI::Profile objects.
 
 =cut
@@ -463,7 +463,7 @@ This method is especially useful where the number of sample I<periods> are much
 more relevant than the number of samples. This is typically the case where
 sample periods correspond to major units of work, such as web requests.
 Using propagate_period_count() lets you calculate averages based on the count
-of periods instead of samples.
+of I<periods> instead of samples.
 
 Imagine, for example, that you're instrumenting a web application and you have
 a function that sends a request to some network service and another reads each
