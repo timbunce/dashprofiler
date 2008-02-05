@@ -96,7 +96,7 @@ Returns the amount of time since the sample was created.
 =cut
 
 sub current_sample_duration {
-    return shift->[2] - dbi_time();
+    return dbi_time() - shift->[2];
 }
 
 
