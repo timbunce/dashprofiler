@@ -4,18 +4,26 @@ use strict;
 use warnings;
 use Carp;
 
-use DashProfiler;
+use base qw(DashProfiler);
 
 our $VERSION = sprintf("1.%06d", q$Revision$ =~ /(\d+)/o);
+our $trace = 0;
 
-use constant MP2 => ( ($ENV{MOD_PERL_API_VERSION}||0) >= 2 or eval "require Apache2::Const");
+use constant MP2 => (
+    ($ENV{MOD_PERL_API_VERSION}||0) >= 2
+    or eval "require Apache2::ServerUtil; Apache2::ServerUtil::server_root()"
+);
+
 BEGIN {
   if (MP2) {
     require Apache2::ServerUtil;
     require Apache2::Const;
     Apache2::Const->import(qw(OK DECLINED));
+
+    warn "set_precondition call needs work for mod_perl2"; # see below
   }
   else {
+    require Apache;
     require Apache::Constants;
     Apache::Constants->import(qw(OK DECLINED));
   }
@@ -33,9 +41,12 @@ DashProfiler::Apache - Hook DashProfiler into Apache mod_perl (v1 or v2)
 
 =head1 SYNOPSIS
 
-To hook DashProfiler into Apache you can just add this line to your httpd.conf:
+To hook DashProfiler into Apache you add this to your httpd.conf:
 
     PerlModule DashProfiler::Apache;
+    PerlPostReadRequestHandler DashProfiler::Apache::start_sample_period_all_profiles
+    PerlCleanupHandler         DashProfiler::Apache::end_sample_period_all_profiles
+    PerlChildExitHandler       DashProfiler::Apache::flush_all_profiles
 
 You'll also need to define at least one profile. An easy way of doing that
 is to use DashProfiler::Auto to get a predefined profile called 'auto':
@@ -50,6 +61,16 @@ Or you can define your own, like this:
     </Perl>
 
 =head1 DESCRIPTION
+
+The DashProfiler module itself will work just fine with Apache.
+The DashProfiler::Apache just fine-tunes the integration in a few ways:
+
+B<*> Sets a precondition on start_sample_period_all_profiles() so that it only
+starts a period for 'initial' requests (where $r->is_initial_req is true).
+This is typically only relevant if your code uses $r->internal_redirect.
+
+B<*> Adds a simple trace mechanism so you can easily see which
+DashProfiler::Apache functions are called for which Apache handlers.
 
 =head2 Example Apache mod_perl Configuration
 
@@ -73,35 +94,54 @@ Also flush_all_profiles() will be called via a PerlChildExitHandler.
 
 =cut
 
-# initially do nothing except arrange to setup when a child is started
-$server->push_handlers(PerlChildInitHandler => sub {
-    DashProfiler->reset_all_profiles();
-    my %handlers = (
-        PerlPostReadRequestHandler => \&apache_start_sample_period_all_profiles,
-        PerlCleanupHandler         => \&apache_end_sample_period_all_profiles,
-        PerlChildExitHandler       => \&apache_flush_all_profiles,
-    );
-    $server->push_handlers($_ => $handlers{$_}) for keys %handlers;
-}) if $server;
+DashProfiler->set_precondition(
+    start_sample_period_all_profiles => sub {
+	# we only want to start a period for 'initial' requests
+	# because we only end them in PerlCleanupHandler and that's only
+	# called for initial requests
+	my $r = (MP2) ? undef : Apache->request;
+	my $is_initial_req = $r->is_initial_req;
+	_trace(sprintf "start precondition = %d (main %d, prev %d)",
+		$is_initial_req, $r->is_main, $r->prev?1:0)
+	    if $trace;
+	return $is_initial_req;
+    }
+);
 
 
-sub apache_start_sample_period_all_profiles {
-    my $r = shift;
-    # we only start a period for initial requests
-    # because we only end them in PerlCleanupHandler and that's only
-    # called for initial requests
-    return DECLINED unless $r->is_initial_req;
+sub _trace {
+    return unless $trace;
+    my $r = (MP2) ? undef : Apache->request;
+    my $current_callback = $r->current_callback;
+    my $uri = $r->the_request;
+    print STDERR "r$$r $current_callback @_ $uri\n";
+}
+
+
+sub start_sample_period_all_profiles {
+    _trace("start_sample_period_all_profiles") if $trace;
     DashProfiler->start_sample_period_all_profiles();
     return DECLINED;
 }
 
-sub apache_end_sample_period_all_profiles {
+
+sub end_sample_period_all_profiles {
+    _trace("end_sample_period_all_profiles") if $trace;
     DashProfiler->end_sample_period_all_profiles();
     return DECLINED;
 }
 
-sub apache_flush_all_profiles {
+
+sub flush_all_profiles {
+    _trace("flush_all_profiles") if $trace;
     DashProfiler->flush_all_profiles();
+    return DECLINED;
+}
+
+
+sub reset_all_profiles {
+    _trace("reset_all_profiles") if $trace;
+    DashProfiler->reset_all_profiles();
     return DECLINED;
 }
 

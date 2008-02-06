@@ -7,7 +7,7 @@ our $VERSION = "1.08"; # $Revision$
 
 =head1 NAME
 
-DashProfiler - collect call count and timing data aggregated by context
+DashProfiler - efficiently collect call count and timing data aggregated by context
 
 =head1 SYNOPSIS
 
@@ -45,6 +45,7 @@ use Data::Dumper;
 use DashProfiler::Core;
 
 my %profiles;
+my %precondition;
 
 
 =head2 add_profile
@@ -133,6 +134,7 @@ Calls profile_as_text() on all profiles, ordered by name.
 =cut
 
 sub all_profiles_as_text {
+    my $class = shift;
     return map { $profiles{$_}->profile_as_text() } sort keys %profiles;
 }
 
@@ -148,7 +150,9 @@ Equivalent to
 =cut
 
 sub dump_all_profiles {
-    warn $_ for all_profiles_as_text();
+    my $class = shift;
+    warn $_ for $class->all_profiles_as_text();
+    return 1;
 }
 
 
@@ -161,8 +165,14 @@ Typically called from mod_perl PerlChildInitHandler.
 =cut
 
 sub reset_all_profiles {    # eg PerlChildInitHandler
+    my $class = shift;
+    if (my $pre = $precondition{reset_all_profiles}) {
+	return 1 unless $pre->();
+    }
     $_->reset_profile_data for values %profiles;
+    return 1;
 }
+$precondition{reset_all_profiles} = undef;
 
 
 =head2 flush_all_profiles
@@ -175,8 +185,14 @@ Typically called from mod_perl PerlChildExitHandler
 =cut
 
 sub flush_all_profiles {    # eg PerlChildExitHandler
+    my $class = shift;
+    if (my $pre = $precondition{flush_all_profiles}) {
+	return 1 unless $pre->();
+    }
     $_->flush for values %profiles;
+    return 1;
 }
+$precondition{flush_all_profiles} = undef;
 
 
 =head2 start_sample_period_all_profiles
@@ -189,8 +205,14 @@ Typically called from mod_perl PerlPostReadRequestHandler
 =cut
 
 sub start_sample_period_all_profiles { # eg PerlPostReadRequestHandler
+    my $class = shift;
+    if (my $pre = $precondition{start_sample_period_all_profiles}) {
+	return unless $pre->();
+    }
     $_->start_sample_period for values %profiles;
+    return 1;
 }
+$precondition{start_sample_period_all_profiles} = undef;
 
 
 =head2 end_sample_period_all_profiles
@@ -204,9 +226,52 @@ Typically called from mod_perl PerlCleanupHandler
 =cut
 
 sub end_sample_period_all_profiles { # eg PerlCleanupHandler
+    my $class = shift;
+    if (my $pre = $precondition{end_sample_period_all_profiles}) {
+	return unless $pre->();
+    }
     $_->end_sample_period for values %profiles;
     $_->flush_if_due      for values %profiles;
+    return 1;
 }
+$precondition{end_sample_period_all_profiles} = undef;
+
+
+=head2 set_precondition
+
+  DashProfiler->set_precondition( function => sub { ... } );
+
+Available functions are:
+
+    reset_all_profiles
+    flush_all_profiles
+    start_sample_period_all_profiles
+    end_sample_period_all_profiles
+
+The set_precondition method associates a code reference with a function.
+When the function is called the corresponding precondition code is executed
+first.  If the precondition code does not return true then the function returns
+immediately.
+
+This mechanism is most useful for fine-tuning when periods start and end.
+For example, there may be times when start_sample_period_all_profiles() is
+being called when you might not want to actually start a new period.
+
+Alternatively the precondition code could itself call start_sample_period()
+for one or more specific profiles and then return false.
+
+See L<DashProfiler::Apache> for an example use.
+
+=cut
+
+sub set_precondition {
+    my ($class, $name, $code) = @_;
+    croak "Not a CODE reference" if $code and ref $code ne 'CODE';
+    croak "Invalid function name '$name'" unless exists $precondition{$name};
+    $precondition{$name} = $code;
+    return;
+}
+
 
 =head1 AUTHOR
 
