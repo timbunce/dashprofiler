@@ -25,7 +25,8 @@ DEPENDENCIES
 
 COPYRIGHT AND LICENCE
 
-Copyright (C) 2008, Tim Bunce, Ireland
+Copyright (C) 2007-2008, Tim Bunce, Ireland
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+You may distribute under the terms of either the GNU General Public
+License or the Artistic License, as specified in the Perl README file.
+

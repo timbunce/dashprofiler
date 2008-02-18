@@ -47,6 +47,7 @@ use DashProfiler::Core;
 my %profiles;
 my %precondition;
 
+=head1 PRIMARY METHODS
 
 =head2 add_profile
 
@@ -69,11 +70,13 @@ sub add_profile {
     return $self;
 }
 
+
 =head2 prepare
 
     $sampler = DashProfiler->prepare($profile_name, ...);
 
 Calls prepare(...) on the DashProfiler named by $profile_name.
+Returns a sampler code reference prepared to take samples.
 
 If no profile with that name exists then it will warn, but only once per name.
 
@@ -91,6 +94,22 @@ sub prepare {
     };
     return $profile_ref->prepare(@_);
 }
+
+
+=head2 profile_names
+
+  @profile_names = DashProfiler->profile_names;
+
+Returns a list of all the profile names added via L</add_profile>.
+
+=cut
+
+sub profile_names {
+    my $class = shift;
+    # return keys but skip 0 entries that might be added by prepare()
+    return grep { $profiles{$_} } keys %profiles;
+}
+
 
 =head2 get_profile
 
@@ -123,7 +142,7 @@ sub profile_as_text {
 }
 
 
-# --- static methods on all profiles ---
+=head1 METHODS AFFECTING ALL PROFILES
 
 =head2 all_profiles_as_text
 
@@ -236,6 +255,7 @@ sub end_sample_period_all_profiles { # eg PerlCleanupHandler
 }
 $precondition{end_sample_period_all_profiles} = undef;
 
+=head1 OTHER METHODS
 
 =head2 set_precondition
 
@@ -275,11 +295,12 @@ sub set_precondition {
 
 =head1 AUTHOR
 
-DashProfiler by Tim Bunce, L<http://www.tim.bunce.name>
+DashProfiler by Tim Bunce, L<http://www.tim.bunce.name> and
+L<http://blog.timbunce.org>
 
 =head1 COPYRIGHT
 
-The DBI module is Copyright (c) 2007-2008 Tim Bunce. Ireland.
+The DashProfiler distribution is Copyright (c) 2007-2008 Tim Bunce. Ireland.
 All rights reserved.
 
 You may distribute under the terms of either the GNU General Public

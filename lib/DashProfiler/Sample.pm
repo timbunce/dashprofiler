@@ -159,6 +159,8 @@ sub DESTROY {
 }
 
 
+1;
+
 =head2 DEBUG
 
 The DEBUG subroutine is a constant that returns whatever the value of
@@ -167,6 +169,18 @@ The DEBUG subroutine is a constant that returns whatever the value of
 
 was when the modle was loaded.
 
+=head1 AUTHOR
+
+DashProfiler by Tim Bunce, L<http://www.tim.bunce.name> and
+L<http://blog.timbunce.org>
+
+=head1 COPYRIGHT
+        
+The DashProfiler distribution is Copyright (c) 2007-2008 Tim Bunce. Ireland.
+All rights reserved.
+
+You may distribute under the terms of either the GNU General Public
+License or the Artistic License, as specified in the Perl README file.
+
 =cut
 
-1;

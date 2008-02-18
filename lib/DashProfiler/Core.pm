@@ -683,6 +683,20 @@ sub end_sample_period {
 }
 
 
+=head2 period_start_time
+
+  $time = $core->period_start_time;
+
+Returns the time the current sample period was started (typically the time
+L</start_sample_period> was called) or 0 if there's no period active.
+
+=cut
+
+sub period_start_time {
+    return shift->{period_start_time};
+}
+
+
 =head2 prepare
 
   $sampler_code_ref = $core->prepare( $context1 )
@@ -810,3 +824,19 @@ BEGIN { $INC{"DBD/DashProfiler.pm"} = __FILE__ }
 
 
 1;
+
+=head1 AUTHOR
+
+DashProfiler by Tim Bunce, L<http://www.tim.bunce.name> and
+L<http://blog.timbunce.org>
+
+=head1 COPYRIGHT
+        
+The DashProfiler distribution is Copyright (c) 2007-2008 Tim Bunce. Ireland.
+All rights reserved.
+
+You may distribute under the terms of either the GNU General Public
+License or the Artistic License, as specified in the Perl README file.
+
+=cut
+

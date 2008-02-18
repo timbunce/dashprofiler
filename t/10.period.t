@@ -15,6 +15,8 @@ my $dp = DashProfiler::Core->new("dp_ex", {
     period_exclusive => 'other',
 });
 
+is $dp->period_start_time, 0;
+
 my $sampler = $dp->prepare("c1");
 my $ps1 = $sampler->("c2");
 undef $ps1;
@@ -25,6 +27,8 @@ like $text, qr/^dp_ex>1000000000>c1>c2: dur=0.\d+ count=1 \(max=0.\d+ avg=0.\d+\
 # should just add an 'other' sample
 $dp->start_sample_period;
 $dp->end_sample_period;
+
+is $dp->period_start_time, 0;
 
 my @text = $dp->profile_as_text();
 is @text, 2;
@@ -61,6 +65,7 @@ is $dp->profile_as_text("period_summary"), "", 'should be empty after sample tha
 
 $dp->start_sample_period;
 $sampler->("c2");
+ok $dp->period_start_time, 'should have non-zero period_start_time';
 $dp->end_sample_period;
 
 like $dp->profile_as_text("period_summary"),
