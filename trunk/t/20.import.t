@@ -9,6 +9,9 @@ $|=1;
 
 use DashProfiler;
 
+my @tmp = DashProfiler->profile_names;
+is scalar @tmp, 0, 'should be no profile_names yet';
+
 eval 'package t1; use DashProfiler::Import nonesuch => 42';
 like $@, qr/DashProfiler::Import name 'nonesuch' must end with _profiler/;
 
@@ -50,6 +53,9 @@ ok defined &t7::imp_profiler_enabled;
 ok t7::imp_profiler(1);
 ok t7::imp_profiler_enabled();
 
+@tmp = DashProfiler->profile_names;
+is scalar @tmp, 1, 'should be one profile_names';
+is $tmp[0], 'imp';
 
 # end
 $dp->reset_profile_data;

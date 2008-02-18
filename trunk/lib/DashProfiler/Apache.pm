@@ -32,7 +32,9 @@ BEGIN {
 my $server = eval {
     (MP2) ? Apache2::ServerUtil->server : Apache->server;
 };
-warn $@ unless $server;
+# warn if we couldn't get a server object, unless were just testing
+warn $@ if not $server
+    and not ($ENV{HARNESS_VERSION} and $ENV{PERL_DL_NONLAZY});
 
 
 =head1 NAME
@@ -75,6 +77,9 @@ DashProfiler::Apache functions are called for which Apache handlers.
 =head2 Example Apache mod_perl Configuration
 
     PerlModule DashProfiler::Apache;
+    PerlPostReadRequestHandler DashProfiler::Apache::start_sample_period_all_profiles
+    PerlCleanupHandler         DashProfiler::Apache::end_sample_period_all_profiles
+    PerlChildExitHandler       DashProfiler::Apache::flush_all_profiles
     <Perl>
         # files will be written to $spool_directory/dashprofiler.subsys.ppid.pid
         DashProfiler->add_profile('subsys', {
@@ -84,13 +89,6 @@ DashProfiler::Apache functions are called for which Apache handlers.
             spool_directory => '/tmp', # needs write permission for apache user
         });
     </Perl>
-
-The DashProfiler::Apache module arranges for start_sample_period_all_profiles()
-to be called via a PerlPostReadRequestHandler at the start of each I<initial
-request>, and end_sample_period_all_profiles() to be called via a
-PerlCleanupHandler at the end of each initial request.
-
-Also flush_all_profiles() will be called via a PerlChildExitHandler.
 
 =cut
 
@@ -112,9 +110,9 @@ DashProfiler->set_precondition(
 sub _trace {
     return unless $trace;
     my $r = (MP2) ? undef : Apache->request;
-    my $current_callback = $r->current_callback;
+    my $current_callback = ($r) ? "r$$r ".$r->current_callback." " : "";
     my $uri = $r->the_request;
-    print STDERR "r$$r $current_callback @_ $uri\n";
+    print STDERR "${current_callback}@_ $uri\n";
 }
 
 
@@ -147,3 +145,19 @@ sub reset_all_profiles {
 
 
 1;
+
+=head1 AUTHOR
+
+DashProfiler by Tim Bunce, L<http://www.tim.bunce.name> and
+L<http://blog.timbunce.org>
+
+=head1 COPYRIGHT
+
+The DashProfiler distribution is Copyright (c) 2007-2008 Tim Bunce. Ireland.
+All rights reserved.
+
+You may distribute under the terms of either the GNU General Public
+License or the Artistic License, as specified in the Perl README file.
+
+=cut
+
