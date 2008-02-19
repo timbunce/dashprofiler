@@ -773,7 +773,7 @@ was when the modle was loaded.
 
 
 # --- DBI::ProfileDumper subclass that doesn't flush_to_disk
-#     Used by period_sample
+#     Used by period_summary
 {
     package DashProfiler::DumpNowhere;
     use strict;
