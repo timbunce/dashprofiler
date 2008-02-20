@@ -1,5 +1,5 @@
 package DashProfiler::UserGuide;
-
+use strict;
 our $VERSION = sprintf("1.%06d", q$Revision$ =~ /(\d+)/o);
 
 =head1 NAME

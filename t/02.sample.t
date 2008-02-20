@@ -30,7 +30,7 @@ if (@diffs) {
 
 # report version and archname for the record, also moves cursor
 # to a new line for the sample overhead reports below
-warn " you're using perl $] on $Config::Config{archname}\n";
+warn " you're using perl $] on $Config::Config{archname} $Config::Config{optimize}\n";
 
 # prepare a new sampler
 my $sampler1 = $dp1->prepare("c1");
