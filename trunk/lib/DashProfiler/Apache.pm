@@ -11,7 +11,7 @@ our $trace = 0;
 
 use constant MP2 => (
     ($ENV{MOD_PERL_API_VERSION}||0) >= 2
-    or eval "require Apache2::ServerUtil; Apache2::ServerUtil::server_root()"
+    or eval "require Apache2::ServerUtil; Apache2::ServerUtil::server_root()" ## no critic
 );
 
 BEGIN {
@@ -46,9 +46,9 @@ DashProfiler::Apache - Hook DashProfiler into Apache mod_perl (v1 or v2)
 To hook DashProfiler into Apache you add this to your httpd.conf:
 
     PerlModule DashProfiler::Apache;
-    PerlPostReadRequestHandler DashProfiler::Apache::start_sample_period_all_profiles
-    PerlCleanupHandler         DashProfiler::Apache::end_sample_period_all_profiles
-    PerlChildExitHandler       DashProfiler::Apache::flush_all_profiles
+    PerlInitHandler       DashProfiler::Apache::start_sample_period_all_profiles
+    PerlCleanupHandler    DashProfiler::Apache::end_sample_period_all_profiles
+    PerlChildExitHandler  DashProfiler::Apache::flush_all_profiles
 
 You'll also need to define at least one profile. An easy way of doing that
 is to use DashProfiler::Auto to get a predefined profile called 'auto':
@@ -77,9 +77,9 @@ DashProfiler::Apache functions are called for which Apache handlers.
 =head2 Example Apache mod_perl Configuration
 
     PerlModule DashProfiler::Apache;
-    PerlPostReadRequestHandler DashProfiler::Apache::start_sample_period_all_profiles
-    PerlCleanupHandler         DashProfiler::Apache::end_sample_period_all_profiles
-    PerlChildExitHandler       DashProfiler::Apache::flush_all_profiles
+    PerlInitHandler       DashProfiler::Apache::start_sample_period_all_profiles
+    PerlCleanupHandler    DashProfiler::Apache::end_sample_period_all_profiles
+    PerlChildExitHandler  DashProfiler::Apache::flush_all_profiles
     <Perl>
         # files will be written to $spool_directory/dashprofiler.subsys.ppid.pid
         DashProfiler->add_profile('subsys', {

@@ -64,25 +64,11 @@ my $HAS_WEAKEN = eval {
     unless $HAS_WEAKEN;
 
 
-my $sample_overhead_time = 0.000020; # on my 2GHz laptop (must not be zero)
-if (0) {    # calculate approximate (minimum) sample overhead time
-    my $profile = __PACKAGE__->new('overhead',{ dbi_profile_class => 'DashProfiler::DumpNowhere' });
-    my $sampler = $profile->prepare('c1');
-    my $count = 100;
-    my ($i, $sum) = ($count, 0);
-    while ($i--) {
-        my $t1 = dbi_time();
-        my $ps1 = $sampler->("c2");
-        undef $ps1;
-        $sum += dbi_time() - $t1;
-    }
-    # overhead is average of time spent calling sampler & DESTROY:
-    $sample_overhead_time = $sum / $count; # ~0.000017 on 2GHz MacBook Pro
-    # ... minus the time accumulated by the samples:
-    $sample_overhead_time -= ($profile->get_dbi_profile->{Data}{c1}{c2}[1] / $count);
-    warn sprintf "sample_overhead_time=%.6fs\n", $sample_overhead_time if DEBUG();
-    $profile->reset_profile_data;
-}
+# On 2GHz OS X 10.5.2 laptop:
+#   sample_overhead_time = 0.000014s
+#   sample_inner_time    = 0.000003s
+my ($sample_overhead_time, $sample_inner_time) = estimate_sample_overheads();
+
 
 =head1 CLASS METHODS
 
@@ -253,6 +239,89 @@ sub new {
 
     return $self;
 }
+
+
+=head2 estimate_sample_overheads
+
+  $sample_overhead_time = DashProfiler::Core->estimate_sample_overheads();
+
+  ($sample_overhead_time, $sample_inner_time)
+      = DashProfiler::Core->estimate_sample_overheads();
+
+Estimates and returns the approximate minimum time overhead for taking a sample.
+Two times are returned. The following timeline diagram explains the difference:
+
+    previous statement      -------------                              
+                                      |                                
+    sampler called                    |                                
+      sampler does work               |                                
+      sampler reads time    -----     |                           
+      sampler does work       |       |                           
+      return sample object    |       |                           
+                              |       |                           
+    (measured statements)     |       |                           
+                              |       |                           
+    sample DESTROY'd          |       |                           
+      sample does work        v       |                           
+      sample reads time     -----     |     = sample_inner_time  
+      sample does work                |                                
+                                      v                                
+    next statement          -------------   = sample_overhead_time       
+
+For estimate_sample_overheads() there are no I<measured statements> so the
+times reflect the pure overheads.
+
+Note that because estimate_sample_overheads() uses a tight loop, the timings
+returned are likely to be I<slightly> smaller then the timings you'd get in
+practice due to CPU L2 caches and other factors. This is okay.
+On my 2GHz laptop running OS X 10.5.2 $sample_overhead_time is 0.000014 and
+$sample_inner_time is 0.000003. (When doing occasional sampling the
+sample_overhead_time is 0.000002 to 0.000003 higher, in case you care.)
+
+DashProfiler automatically calls estimate_sample_overheads() when loading and
+records the returned values.  It then uses the C<sample_overhead_time> to
+adjust the L</period_exclusive> time to more accrately reflect the time not
+covered by the accumulated samples.  Currently the C<sample_inner_time> is
+I<not> subtracted from the individual samples. That may change in future.
+
+=cut
+
+sub estimate_sample_overheads {
+    my ($self, $count) = @_;
+    $count ||= 1000;
+
+    my $profile = __PACKAGE__->new('overhead',{ dbi_profile_class => 'DashProfiler::DumpNowhere' });
+    my $sampler = $profile->prepare('c1');
+    # It's okay that this is a tight loop so will tend to give lower times
+    # than would be experienced in practice because, while we want to get as
+    # close as possible to the true overhead, we don't want to overestimate it.
+    my ($i, $sum) = ($count, 0);
+    while ($i--) {
+        my $t0 = dbi_time();         # to compare with t1 below
+        my $t1 = dbi_time();         # time before sampling
+        my $ps1 = $sampler->("c2");  # begin sample
+        undef $ps1;                  # end sample
+        $sum += (dbi_time() - $t1)   # time to perform full sample lifecycle
+              - ($t1 - $t0);         # subtract cost of calling dbi_time()
+    }
+    # overhead is average of time spent calling sampler & DESTROY:
+    $sample_overhead_time = $sum / $count; # ~0.000014s on 2GHz OS X 10.5.2 laptop
+    $sample_inner_time    = ($profile->get_dbi_profile->{Data}{c1}{c2}[1] / $count);
+
+    # we could also subtract the time accumulated by the samples, like this:
+    #   $sample_overhead_time -= $sample_inner_time
+    # but we don't because that's also a valid part of the overhead
+    # because there are no statements between the sample creation and destruction.
+
+    warn sprintf "sample_overhead_time=%.7fs (sample_inner_time=%.7fs)\n",
+        $sample_overhead_time, $sample_inner_time if DEBUG();
+
+    $profile->reset_profile_data;
+
+    return  $sample_overhead_time unless wantarray;
+    return ($sample_overhead_time, $sample_inner_time);
+}
+
 
 
 =head1 OBJECT METHODS
@@ -791,6 +860,8 @@ was when the modle was loaded.
     sub driver{
         return $drh if $drh;
         my ($class, $attr) = @_;
+        $DBD::DashProfiler::db::imp_data_size = 0;
+        $DBD::DashProfiler::dr::imp_data_size = 0;
         return DBI::_new_drh($class."::dr", {
             Name => 'DashProfiler', Version => $DashProfiler::Core::VERSION,
         });
