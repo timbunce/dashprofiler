@@ -3,7 +3,7 @@ package DashProfiler;
 use strict;
 use warnings;
 
-our $VERSION = "1.09"; # $Revision$
+our $VERSION = "1.11"; # $Revision$
 
 =head1 NAME
 
@@ -27,9 +27,9 @@ DashProfiler is fast, very fast. Especially given the functionality and flexibil
 When you build DashProfiler, the test suite shows the performance on your
 system when you run "make test". On my system, for example it reports:
 
-    t/02.sample....... you're using perl 5.008006 on darwin-thread-multi-2level
-      Average 'hot' sample overhead is  0.000029s (max 0.000240s, min 0.000028s)
-      Average 'cold' sample overhead is 0.000034s (max 0.000094s, min 0.000030s)
+    t/02.sample.......ok 1/0 you're using perl 5.010000 on darwin-2level -O3     
+      Average 'cold' sample overhead is 0.000021s (max 0.000104s, min 0.000019s)
+      Average 'hot'  sample overhead is 0.000017s (max 0.000102s, min 0.000016s)
 
 =head2 Apache mod_perl
 

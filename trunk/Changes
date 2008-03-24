@@ -16,6 +16,11 @@ Ponder need for workaround for systems with clocks that go backwards
 Add test for throwing an exception in context2edit as way to veto sample - and document
 Add tests for set_precondition
 
+=head2 DashProfiler 1.11 - r45 - Mar 24 2008
+
+  Now ~17% faster (cheaper) when using DBI >= 1.603.
+  Make tests more robust and work with Perl 5.10.
+
 =head2 DashProfiler 1.09 - r43 - Feb 20 2008
 
   Added $sample->current_sample_duration method.
