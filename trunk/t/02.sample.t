@@ -36,7 +36,7 @@ warn " you're using perl $] on $Config::Config{archname} $Config::Config{optimiz
 my $sampler1 = $dp1->prepare("c1");
 my @sample_times;
 
-for (my $i=500; $i--;) {
+for (my $i=1_000; $i--;) {
     my $t1 = dbi_time();
     my $ps1 = $sampler1->("spin");
     undef $ps1;
@@ -48,7 +48,7 @@ warn sprintf " Average 'cold' sample overhead is %.6fs (max %.6fs, min %.6fs)\n"
 $dp1->reset_profile_data;
 @sample_times = ();
 
-for (my $i=1_000; $i--;) {
+for (my $i=2_000; $i--;) {
     my $t1 = dbi_time();
     my $ps1 = $sampler1->("spin");
     undef $ps1;
