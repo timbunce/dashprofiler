@@ -21,7 +21,7 @@ like $@, qr/No profile called 'nonesuch' has been defined/;
 
 my $dp = DashProfiler::Core->new( imp => {
 });
-eval 'package t3; use DashProfiler::Import imp_profiler';
+eval 'package t3; use DashProfiler::Import qw(imp_profiler)';
 like $@, qr/No profile called 'imp' has been defined/; # must be via DashProfiler not DashProfiler::Core
 
 
@@ -43,7 +43,7 @@ ok !t5::nonesuch_profiler_enabled();
 
 $dp = DashProfiler->add_profile( imp => {
 });
-eval 'package t6; use DashProfiler::Import imp_profiler';
+eval 'package t6; use DashProfiler::Import qw(imp_profiler)';
 like $@, qr/requires an array ref containing at least one element/;
 
 

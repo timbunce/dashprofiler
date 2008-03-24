@@ -53,12 +53,12 @@ B<DashProfiler::Sample>
 
 To add timing samples you need to use a Sampler. A Sampler is a code reference
 that I<when called> creates a new L<DashProfiler::Sample> object and returns a
-reference to it. It's like a factory for creating samples. The Sampler code
+reference to it. Samplers are factories for creating samples. The Sampler code
 reference is customized (curried) to contain the value for C<context1> to be
 used for the created DashProfiler::Sample.
 
 Samplers are created using the prepare() method of DashProfiler::Core or
-DashProfiler (which isi just a by-name wrapper for DashProfiler::Core).
+DashProfiler (which is just a by-name wrapper for DashProfiler::Core).
 
                              DashProfiler
                                   |

@@ -19,6 +19,7 @@ is $dp->period_start_time, 0;
 
 my $sampler = $dp->prepare("c1");
 my $ps1 = $sampler->("c2");
+1 while ($ps1->current_sample_duration < 0.1);
 undef $ps1;
 
 my $text = $dp->profile_as_text();
