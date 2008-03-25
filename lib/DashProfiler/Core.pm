@@ -240,6 +240,9 @@ sub new {
         # start_sample_period() will add handle to {dbi_handles_active}
     }
 
+    # mark as in_use if disabled as this allows the sampler to be more efficient
+    $self->{in_use} = -42 if $self->{disabled};
+
     return $self;
 }
 

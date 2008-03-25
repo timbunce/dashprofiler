@@ -65,8 +65,11 @@ samples do overlap then C<period_exclusive> is disabled for that DashProfiler.
 sub new {
     # ($class, $meta, $context2, $start_time, $allow_overlap)
     my $profile_ref = $_[1]->{_dash_profile}; # $meta->_dash_profile
-    return if $profile_ref->{disabled};
     if ($profile_ref->{in_use}++) {
+        if ($profile_ref->{disabled}) {
+            $profile_ref->{in_use}--; # undo the increment we did above
+            return;
+        }
         if ($_[4]) { # allow_overlaping_use
             # can't use exclusive timer with nested samples
             undef $profile_ref->{exclusive_sampler};

@@ -18,7 +18,7 @@ Add tests for set_precondition
 
 disabled should set inuse so the check for disabled can be moved inside the 'already inuse' block
 
-=head2 DashProfiler 1.12 - r
+=head2 DashProfiler 1.12 - r48 - Mar 25th 2008
 
   Fixed period_exclusive sample calculation of overheads.
   Fixed period_sample to be disabled until start_period_sample() called.
