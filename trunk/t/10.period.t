@@ -30,6 +30,7 @@ like $text, qr/^dp_ex>1000000000>c1>c2: dur=0.\d+ count=1 \(max=0.\d+ avg=0.\d+\
 
 # should just add an 'other' sample
 $dp->start_sample_period;
+1 for (0..1000);
 $dp->end_sample_period;
 
 is $dp->period_start_time, 0, 'period_start_time should be 0 after end_sample_period';
