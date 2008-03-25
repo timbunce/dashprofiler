@@ -1,0 +1,10 @@
+\B\.svn\b
+^MANIFEST\.
+^Makefile$
+~$
+\.html$
+\.old$
+^blib/
+^tmp/
+^old/
+^DashProfiler-\d
