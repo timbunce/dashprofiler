@@ -140,24 +140,25 @@ The sample_class option specifies which class should be used to take profile sam
 The default is C<DashProfiler::Sample>.
 See the L</prepare> method for more information.
 
-=head3 period_exclusive
-
-When using periods, via the start_sample_period() and end_sample_period() methods,
-DashProfiler can add an additional sample representing the time between the
-start_sample_period() and end_sample_period() method calls that wasn't accounted for by the samples.
-
-The period_exclusive option enables this extra sample. The value of the option
-is used as the value for key1 and key2 in the Path.
-
 =head3 period_summary
 
-Specifies the name of the extra DBI Profile object to attach to the core.
+Specifies the name of an extra DBI Profile object to attach to the core.
 This extra 'period summary' profile is enabled and reset by the start_sample_period()
 method and disabled by the end_sample_period() method.
 
 The mechanism enables a single profile to be used to capture both long-running
-sampling (for example in a web application, often with C<granularity> set)
-and single-period.
+sampling (often with C<granularity> set) and single-period (e.g., for a 'debug'
+footer on a generated web page)
+
+=head3 period_exclusive
+
+When using periods, via the start_sample_period() and end_sample_period() methods,
+DashProfiler can add an additional sample representing the time between the
+start_sample_period() and end_sample_period() method calls that I<wasn't>
+accounted for by the samples.
+
+The period_exclusive option enables this extra sample. The value of the option
+is used as the value for key1 and key2 in the Path.
 
 =head3 period_strict_start
 
@@ -225,6 +226,8 @@ sub new {
     _load_class($self->{sample_class});
 
     if (my $exclusive_name = $self->{period_exclusive}) {
+        # create the sampler through which period_exclusive samples are added
+        # by end_sample_period()
         $self->{exclusive_sampler} = $self->prepare($exclusive_name, $exclusive_name);
     }
     my $dbi_profile = $self->_mk_dbi_profile($self->{dbi_profile_class}, $self->{granularity});
@@ -234,7 +237,7 @@ sub new {
         my $dbi_profile = $self->_mk_dbi_profile("DashProfiler::DumpNowhere", 0);
         my $dbh = $self->attach_dbi_profile( $dbi_profile, "period_summary", 0 );
         $self->{dbi_handles_all}{period_summary} = $dbh;
-        $self->{dbi_handles_active}{period_summary} = $dbh;
+        # start_sample_period() will add handle to {dbi_handles_active}
     }
 
     return $self;
@@ -729,26 +732,45 @@ sub end_sample_period {
 
     $self->{period_count}++;
 
-    if (my $profiler = $self->{exclusive_sampler} and
-        my $dbi_profile = $self->get_dbi_profile
-    ) {
-        # add a sample with the start time forced to be period_start_time
+    # disconnect period_summary dbi profile from receiving any more samples
+    my $period_summary_dbh = delete $self->{dbi_handles_active}{period_summary};
+    my $period_summary_profile = $period_summary_dbh->{Profile};
+
+    if (my $exclusive_sampler = $self->{exclusive_sampler}) {
+        # Calculate how much time between $self->{period_start_time} and now
+        # is not accounted for by $self->{period_accumulated}.
+        # Add a sample with the start time forced to be period_start_time
         # shifted forward by the accumulated sample durations + sampling overheads.
         # This accounts for all the time between start_sample_period and
         # end_sample_period that hasn't been accounted for by normal samples.
-        dbi_profile_merge(my $total=[], $dbi_profile->{Data});
-        my $overhead = $sample_overhead_time * $total->[0];
-        warn "$self->{name} period end: overhead ${overhead}s ($total->[0] * $sample_overhead_time)\n"
+
+        # calculate overhead of taking samples
+        my $overhead;
+        if ($period_summary_profile) {
+            # if period_summary is enabled then we can use the count of
+            # samples this period to scale the overhead correctly
+            dbi_profile_merge(my $total=[], $period_summary_profile->{Data});
+            # scale overhead by number of samples in period
+            $overhead = $sample_overhead_time * $total->[0];
+        }
+        else {
+            # if period_summary is not enabled then we can't do much
+            $overhead = $sample_overhead_time;
+        }
+
+        warn sprintf "%s period end: overhead %.6fs (%.0f * %.6fs)\n",
+                $self->{profile_name}, $overhead, $overhead/$sample_overhead_time, $sample_overhead_time
             if DEBUG() && DEBUG() >= 3;
-        $profiler->(undef, $self->{period_start_time} + $self->{period_accumulated} + $overhead)
-            if $overhead; # don't add 'other' if there have been no actual samples
-        # gets destroyed, and so counted, immediately.
+
+        $exclusive_sampler->(undef, $self->{period_start_time} + $self->{period_accumulated} + $overhead);
+
+        # sample gets destroyed, and so counted, immediately.
     }
+
     $self->{period_start_time} = 0;
-    # disconnect period_summary dbi profile from receiving any more samples
-    # return it to caller
-    my $period_summary_dbh = delete $self->{dbi_handles_active}{period_summary};
-    return ($period_summary_dbh) ? $period_summary_dbh->{Profile} : undef;
+    # $self->{period_accumulated} will be reset by start_sample_period()
+
+    return $period_summary_profile;
 }
 
 
