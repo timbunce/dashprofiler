@@ -3,7 +3,7 @@ package DashProfiler;
 use strict;
 use warnings;
 
-our $VERSION = "1.12"; # $Revision$
+our $VERSION = "1.13"; # $Revision$
 
 =head1 NAME
 
@@ -189,7 +189,7 @@ sub reset_all_profiles {    # eg PerlChildInitHandler
 	return 1 unless $pre->();
     }
     $_->reset_profile_data for values %profiles;
-    return 1;
+    return -1; # DECLINED
 }
 $precondition{reset_all_profiles} = undef;
 
@@ -206,10 +206,11 @@ Typically called from mod_perl PerlChildExitHandler
 sub flush_all_profiles {    # eg PerlChildExitHandler
     my $class = shift;
     if (my $pre = $precondition{flush_all_profiles}) {
-	return 1 unless $pre->();
+	return -1   # DECLINED
+            unless $pre->();
     }
     $_->flush for values %profiles;
-    return 1;
+    return -1;  # DECLINED
 }
 $precondition{flush_all_profiles} = undef;
 
@@ -226,10 +227,11 @@ Typically called from mod_perl PerlPostReadRequestHandler
 sub start_sample_period_all_profiles { # eg PerlPostReadRequestHandler
     my $class = shift;
     if (my $pre = $precondition{start_sample_period_all_profiles}) {
-	return unless $pre->();
+	return -1   # DECLINED
+            unless $pre->();
     }
     $_->start_sample_period for values %profiles;
-    return 1;
+    return -1;   # DECLINED
 }
 $precondition{start_sample_period_all_profiles} = undef;
 
@@ -247,11 +249,12 @@ Typically called from mod_perl PerlCleanupHandler
 sub end_sample_period_all_profiles { # eg PerlCleanupHandler
     my $class = shift;
     if (my $pre = $precondition{end_sample_period_all_profiles}) {
-	return unless $pre->();
+	return -1   # DECLINED
+            unless $pre->();
     }
     $_->end_sample_period for values %profiles;
     $_->flush_if_due      for values %profiles;
-    return 1;
+    return -1;  # DECLINED
 }
 $precondition{end_sample_period_all_profiles} = undef;
 

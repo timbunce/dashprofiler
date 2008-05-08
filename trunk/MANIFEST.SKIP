@@ -8,3 +8,5 @@
 ^tmp/
 ^old/
 ^DashProfiler-\d
+^cover_db/
+\.key/
