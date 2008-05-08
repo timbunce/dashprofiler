@@ -26,11 +26,11 @@ my $ps1 = $sampler->("c2");
 undef $ps1;
 
 my $text = $dp->profile_as_text();
-like $text, qr/^dp_ex>1000000000>c1>c2: dur=0.\d+ count=1 \(max=0.\d+ avg=0.\d+\)\n$/;
+like $text, qr/^dp_ex>1000000000>c1>c2: dur=\d.\d+ count=1 \(max=\d.\d+ avg=\d.\d+\)\n$/;
 
 # should just add an 'other' sample
 $dp->start_sample_period;
-1 for (0..1000);
+sleep 1;
 $dp->end_sample_period;
 
 is $dp->period_start_time, 0, 'period_start_time should be 0 after end_sample_period';
@@ -38,7 +38,7 @@ is $dp->period_start_time, 0, 'period_start_time should be 0 after end_sample_pe
 my @text = $dp->profile_as_text();
 is @text, 2;
 is $text[0], $text, 'should be same as before';
-like $text[1], qr/^dp_ex>1000000000>other>other: dur=0.\d+ count=1 \(max=0.\d+ avg=0.\d+\)\n$/,
+like $text[1], qr/^dp_ex>1000000000>other>other: dur=\d.\d+ count=1 \(max=\d.\d+ avg=\d.\d+\)\n$/,
     "the 'other' (period_exclusive) sample should be formatted ok"
     .sprintf(" (overhead=%.6f, inner=%.6f)", $sample_overhead_time, $sample_inner_time);
 
@@ -76,11 +76,11 @@ ok $dp->period_start_time, 'should have non-zero period_start_time';
 $dp->end_sample_period;
 
 like $dp->profile_as_text("period_summary"),
-    qr/^dp_ex>c1>c2: dur=0.\d+ count=1 \(max=0.\d+ avg=0.\d+\)\n$/,
+    qr/^dp_ex>c1>c2: dur=\d.\d+ count=1 \(max=\d.\d+ avg=\d.\d+\)\n$/,
     'should have count of 1 and no time in path';
 
 like $dp->profile_as_text(),
-    qr/^dp_ex>1000000000>c1>c2: dur=0.\d+ count=2 \(max=0.\d+ avg=0.\d+\)\n$/,
+    qr/^dp_ex>1000000000>c1>c2: dur=\d.\d+ count=2 \(max=\d.\d+ avg=\d.\d+\)\n$/,
     'main profile should have count of 2';
 
 $dp->reset_profile_data;

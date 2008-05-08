@@ -18,6 +18,11 @@ Add tests for set_precondition
 
 disabled should set inuse so the check for disabled can be moved inside the 'already inuse' block
 
+=head2 DashProfiler 1.13 - r50 - May 8th 2008
+
+  Changed DashProfiler subs that may be used as Apache handlers
+    to return -1 (DECLINED).
+
 =head2 DashProfiler 1.12 - r48 - Mar 25th 2008
 
   Fixed period_exclusive sample calculation of overheads.
