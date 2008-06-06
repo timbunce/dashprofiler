@@ -97,10 +97,13 @@ DashProfiler->set_precondition(
 	# we only want to start a period for 'initial' requests
 	# because we only end them in PerlCleanupHandler and that's only
 	# called for initial requests
-	my $r = (MP2) ? undef : Apache->request;
-	my $is_initial_req = $r->is_initial_req;
-	_trace(sprintf "start precondition = %d (main %d, prev %d)",
-		$is_initial_req, $r->is_main, $r->prev?1:0)
+	my $r = (ref $_[0]) ? shift
+	    : (MP2) ? Apache2::RequestUtil->request : Apache->request;
+	# The "&& !$r->next" is needed because Apache->request doesn't return
+	# the right request object when called in early phases of an internal_redirect.
+	my $is_initial_req = $r->is_initial_req && !$r->next;
+	_trace(sprintf "start precondition = %d (main %d, prev %d, next %d)",
+		$is_initial_req, $r->is_main, $r->prev?1:0, $r->next?1:0)
 	    if $trace;
 	return $is_initial_req;
     }
@@ -109,7 +112,7 @@ DashProfiler->set_precondition(
 
 sub _trace {
     return unless $trace;
-    my $r = (MP2) ? undef : Apache->request;
+    my $r = (MP2) ? Apache2::RequestUtil->request : Apache->request;
     my $current_callback = ($r) ? "r$$r ".$r->current_callback." " : "";
     my $uri = $r->the_request;
     print STDERR "${current_callback}@_ $uri\n";

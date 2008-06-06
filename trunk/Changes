@@ -18,6 +18,13 @@ Add tests for set_precondition
 
 disabled should set inuse so the check for disabled can be moved inside the 'already inuse' block
 
+=head2 DashProfiler 1.14 - XXX
+
+precondition code now gets arguments to function
+::Apache checks for $r->next
+Better mod_perl2 support, thanks to Jess Robinson.
+::Apache need work for mod_perl1 and 1
+
 =head2 DashProfiler 1.13 - r50 - May 8th 2008
 
   Changed DashProfiler subs that may be used as Apache handlers
