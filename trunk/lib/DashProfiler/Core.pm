@@ -664,6 +664,8 @@ sub start_sample_period {
     my $self = shift;
     # marks the start of a series of related samples, e.g, within one http request
     # see end_sample_period()
+    warn "start_sample_period $self->{profile_name} $self->{period_count} $self->{period_start_time}\n" if DEBUG();
+
     if ($self->{period_start_time}) {
         if (my $strictness = $self->{period_strict_start}) {
             $strictness = $strictness->($self) if ref $strictness eq 'CODE';
@@ -720,6 +722,8 @@ See also L</start_sample_period>, C<period_summary> and L</propagate_period_coun
 
 sub end_sample_period {
     my $self = shift;
+    warn "end_sample_period $self->{profile_name} $self->{period_count} $self->{period_start_time}\n"
+	if DEBUG();
 
     if (not $self->{period_start_time}) {
         if (my $strictness = $self->{period_strict_end}) {
