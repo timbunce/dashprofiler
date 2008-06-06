@@ -184,9 +184,8 @@ Typically called from mod_perl PerlChildInitHandler.
 =cut
 
 sub reset_all_profiles {    # eg PerlChildInitHandler
-    my $class = shift;
     if (my $pre = $precondition{reset_all_profiles}) {
-	return 1 unless $pre->();
+	return 1 unless $pre->(@_);
     }
     $_->reset_profile_data for values %profiles;
     return -1; # DECLINED
@@ -204,10 +203,9 @@ Typically called from mod_perl PerlChildExitHandler
 =cut
 
 sub flush_all_profiles {    # eg PerlChildExitHandler
-    my $class = shift;
     if (my $pre = $precondition{flush_all_profiles}) {
 	return -1   # DECLINED
-            unless $pre->();
+            unless $pre->(@_);
     }
     $_->flush for values %profiles;
     return -1;  # DECLINED
@@ -225,10 +223,9 @@ Typically called from mod_perl PerlPostReadRequestHandler
 =cut
 
 sub start_sample_period_all_profiles { # eg PerlPostReadRequestHandler
-    my $class = shift;
     if (my $pre = $precondition{start_sample_period_all_profiles}) {
 	return -1   # DECLINED
-            unless $pre->();
+            unless $pre->(@_);
     }
     $_->start_sample_period for values %profiles;
     return -1;   # DECLINED
@@ -247,10 +244,9 @@ Typically called from mod_perl PerlCleanupHandler
 =cut
 
 sub end_sample_period_all_profiles { # eg PerlCleanupHandler
-    my $class = shift;
     if (my $pre = $precondition{end_sample_period_all_profiles}) {
 	return -1   # DECLINED
-            unless $pre->();
+            unless $pre->(@_);
     }
     $_->end_sample_period for values %profiles;
     $_->flush_if_due      for values %profiles;
@@ -272,9 +268,9 @@ Available functions are:
     end_sample_period_all_profiles
 
 The set_precondition method associates a code reference with a function.
-When the function is called the corresponding precondition code is executed
-first.  If the precondition code does not return true then the function returns
-immediately.
+When the function is called the precondition code is called first and passed
+the arguments to the function.  If the precondition code returns false
+then the function returns immediately.
 
 This mechanism is most useful for fine-tuning when periods start and end.
 For example, there may be times when start_sample_period_all_profiles() is
