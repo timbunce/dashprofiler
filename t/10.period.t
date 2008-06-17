@@ -7,6 +7,7 @@ use Test::More qw(no_plan);
 use Data::Dumper;
 
 use DashProfiler::Core;
+use DBI qw(dbi_profile_merge);
 $|=1;
 
 my ($sample_overhead_time, $sample_inner_time)
@@ -90,7 +91,7 @@ print "-- propagate_period_count & flush_hook\n";
 
 undef $dp;
 $dp = DashProfiler::Core->new("dp3", {
-    granularity => 1_000_000_000,
+    granularity => 1,
     period_exclusive => 'ex',
     flush_hook => sub {
         warn "flush_hook";
@@ -102,53 +103,80 @@ $dp = DashProfiler::Core->new("dp3", {
 my $dbi_profile = $dp->get_dbi_profile();
 is $dbi_profile->{Data}, undef;
 $dp->propagate_period_count(); # shouldn't fail
+is $dbi_profile->{Data}, undef, 'should contain no Data';
+
 $dp->start_sample_period;
 $dp->propagate_period_count(); # shouldn't fail
-$dp->end_sample_period;
+is $dbi_profile->{Data}, undef, 'should contain no Data';
 
+$dp->end_sample_period;
+is $dp->period_count, 1;
+
+# should only contain the period_exclusive data
+my $data = $dbi_profile->{Data};
+is keys(%$data), 1, 'should contain only one time sub-tree';
+
+sleep 2;
 $sampler = $dp->prepare("c1");
-for (1..2) {    # 200 samples over 2 periods
-    $dp->start_sample_period;
-    $sampler->("c2") for (1..100);
-    $dp->end_sample_period;
-}
-#warn Dumper($dbi_profile);
-is $dbi_profile->{Data}{1000000000}{c1}{c2}[0], 200;
-is $dbi_profile->{Data}{1000000000}{ex}{ex}[0], 3;
+$sampler->("c2") for (1..100);
+
+$dp->start_sample_period;
+$dp->end_sample_period;
+is $dp->period_count, 2;
+
+dbi_profile_merge(my $total=[], $dbi_profile->{Data});
+is $total->[0], 102; # 100 + 2 period_exclusive's
+#warn Dumper($dbi_profile->{Data});
+
+# propagate the count of 2 to the two sub-trees, getting 1 each
 $dp->propagate_period_count();
-is $dbi_profile->{Data}{1000000000}{c1}{c2}[0], 3;
-is $dbi_profile->{Data}{1000000000}{ex}{ex}[0], 3;
+#warn Dumper($dbi_profile->{Data});
+
+# as one sub-tree contains two leaves (the c1c2 sample and the ex sample)
+# the total will be 3
+dbi_profile_merge($total=[], $dbi_profile->{Data});
+is $total->[0], 3;
 
 $dp->reset_profile_data;
 
 __END__
-
-    'Data' => {
-                '1000000000' => {
-                                'excl' => {
-                                            'excl' => [
-                                                        2,
-                                                        '0.0026402473449707',
-                                                        '0.00132417678833008',
-                                                        '0.00131607055664062',
-                                                        '0.00132417678833008',
-                                                        '1184948308.1452',
-                                                        '1184948308.14687'
-                                                        ]
-                                            },
-                                'c1' => {
-                                            'c2' => [
-                                                    200,
-                                                    '0.000652790069580078',
-                                                    '4.05311584472656e-06',
-                                                    '2.86102294921875e-06',
-                                                    '4.05311584472656e-06',
-                                                    '1184948308.14488',
-                                                    '1184948308.14815'
-                                                    ]
-                                        }
-                                }
-            },
-
-
-1;
+after propagate_period_count
+$VAR1 = {
+          '1213730165' => {
+                            'ex' => {
+                                      'ex' => [
+                                                '1',
+                                                '0.000154972076416016',
+                                                '0.000154972076416016',
+                                                '0.000154972076416016',
+                                                '0.000154972076416016',
+                                                '1213730165.44161',
+                                                '1213730165.44161'
+                                              ]
+                                    }
+                          },
+          '1213730167' => {
+                            'ex' => {
+                                      'ex' => [
+                                                '1',
+                                                '0',
+                                                '0',
+                                                '0',
+                                                '0',
+                                                '1213730167.44544',
+                                                '1213730167.44544'
+                                              ]
+                                    },
+                            'c1' => {
+                                      'c2' => [
+                                                '1',
+                                                '0.000545978546142578',
+                                                '8.10623168945312e-06',
+                                                '5.00679016113281e-06',
+                                                '8.10623168945312e-06',
+                                                '1213730167.44263',
+                                                '1213730167.44538'
+                                              ]
+                                    }
+                          }
+        };
