@@ -65,8 +65,8 @@ my $sample = $sampler1->("and warm the cache");
 sleep 1;
 cmp_ok $sample->current_sample_duration, '>=', 0.5,
     'current_sample_duration should be > 0.5';
-cmp_ok $sample->current_sample_duration, '<', 2,
-    'current_sample_duration should be < 2';
+cmp_ok $sample->current_sample_duration, '<', 2.9,
+    'current_sample_duration should be < 2.9';
 undef $sample; # end sample
 sleep 1; # needed to keep output tidy, odd
 $dp1->reset_profile_data;
