@@ -18,12 +18,12 @@ Add tests for set_precondition
 
 disabled should set inuse so the check for disabled can be moved inside the 'already inuse' block
 
-=head2 DashProfiler 1.14 - XXX
+=head2 DashProfiler 1.14 - r59 - June 17th 2008
 
   Precondition hooks now get passed args to original function.
   DashProfiler::Apache works with $r->internal_redirect.
-
   Better mod_perl2 support, thanks to Jess Robinson.
+  Added more docs to DashProfiler::Auto.
   Added $core->period_count method.
 
 =head2 DashProfiler 1.13 - r50 - May 8th 2008
