@@ -53,6 +53,7 @@ the C<period_exclusive> summary is disabled.
 =head1 DESCRIPTION
 
 The DashProfiler::Auto is designed for quick temporary use of DashProfiler.
+
 It avoids the need to create a profile by creating one for you with a typical
 configuration, and defining a I<sample period> from the time the module was
 loaded to the time the program exits.
@@ -61,7 +62,7 @@ loaded to the time the program exits.
 
 The default configuration is:
 
-    my $auto = DashProfiler->add_profile( auto => {
+    DashProfiler->add_profile( auto => {
         period_exclusive => 'other',
         flush_hook => sub {
             my ($self, $dbi_profile_name) = @_;
@@ -76,7 +77,7 @@ B<*> C<flush_hook> uses warn() to write out the profile data, then resets (disca
 
 =cut
 
-my $auto = DashProfiler->add_profile( auto => {
+our $auto ||= DashProfiler->add_profile( auto => {
     period_exclusive => 'other',
     profile_as_text_args => {
         separator => " > ",
@@ -101,6 +102,9 @@ It also defines an C<END> block which does
 
 so the sample period runs from the time the module was loaded (typically when
 the program started running) through to the time the program exits.
+
+See start_sample_period and end_sample_period in L<DashProfiler::Core> for more
+information about periods and period_exclusive samples.
 
 =cut
 
@@ -139,6 +143,20 @@ sub import {
 
 
 1;
+
+=head2 Apache mod_perl
+
+When using DashProfiler::Auto with Apache you'd typically add:
+
+    PerlModule DashProfiler::Apache
+
+to the httpd.conf file. Then, in the modules you want to add profiling to,
+you'd add:
+
+    use DashProfiler::Auto;
+
+at the top and add calls to auto_profiler($your_key) to the relevant sections
+of code.
 
 =head1 AUTHOR
 
