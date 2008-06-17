@@ -526,13 +526,11 @@ sub visit_profile_nodes {
 
 Sets the count field of all the leaf-nodes in the named DBI Profile to the
 number of times start_sample_period() has been called since the last flush() or
-reset_profile_data().
+reset_profile_data().  If the profile has a time granularity set then the count
+value used is the total period count divided by the number of separate
+sub-trees of profile data.
 
 If $dbi_profile_name is "*" then counts in all attached profiles are set.
-
-Resets the period count used.
-
-Does nothing but return 0 if the the period count is zero.
 
 This method is especially useful where the number of sample I<periods> are much
 more relevant than the number of samples. This is typically the case where
@@ -544,9 +542,12 @@ Imagine, for example, that you're instrumenting a web application and you have
 a function that sends a request to some network service and another reads each
 line of the response.  You'd add DashProfiler sampler calls to each function.
 The number of samples recorded in the leaf node will depends on the number of
-lines in the response from the network service. You're much more likely to want
-to know "average total time spent handling the network service per http request"
-than "average time spent in a network service related function".
+lines in the response from the network service.
+
+By default the time/count will give you the "average time spent in a network
+service related function" but you're much more likely to want to know the
+"average total time spent handling the network service per http request".
+If that is the case, then use propagate_period_count().
 
 This method is typically called just before a flush(), often via C<flush_hook>.
 
@@ -555,12 +556,45 @@ This method is typically called just before a flush(), often via C<flush_hook>.
 sub propagate_period_count {
     my ($self, $dbi_profile_name) = @_;
     # force count of all nodes to be count of periods instead of samples
-    my $count = $self->{period_count}
-        or return 0;
-    warn "propagate_period_count $self->{profile_name} count $count\n" if DEBUG();
-    # force count of all nodes to be count of periods
-    $self->visit_profile_nodes($dbi_profile_name, sub { return unless ref $_[0] eq 'ARRAY'; $_[0]->[0] = $count });
-    return $count;
+    warn "propagate_period_count $self->{profile_name} count $self->{period_count}\n"
+        if DEBUG();
+
+    my @dbi_profiles = $self->get_dbi_profile($dbi_profile_name);
+    for my $dbi_profile (@dbi_profiles) {
+        my $data = $dbi_profile->{Data}
+            or next;
+
+        my ($count, @nodes);
+        if ($self->{granularity}) {
+            # when granularity is being used there may be multiple
+            # sub-trees, each covering a period of time. The $count
+            # should be divided by the number of sub-trees.
+            # XXX should the sub-trees be normalized to all contain the
+            # same set of keys (with zero times for 'faked' entries)?
+            @nodes = (values %$data) # XXX get nodes on time axis
+                or next; # no nodes
+            warn sprintf "propagate_period_count divided over %d sub-trees\n",
+                scalar @nodes if DEBUG();
+            $count = $self->{period_count} / @nodes;
+        }
+        else {
+            # when granularity isn't being used there's just one
+            # overall tree (no per-time sub-trees) so the $count
+            # applies equally to all leaves of the tree.
+            @nodes = ($data);
+            $count = $self->{period_count};
+        }
+        my $set_count_sub = sub {
+            # set count of leaf nodes
+            $_[0]->[0] = $count if ref $_[0] eq 'ARRAY';
+            return;
+        };
+
+        $self->_visit_nodes($_, undef, $set_count_sub)
+            for @nodes;
+    }
+
+    return $self->{period_count};
 }
 
 
@@ -609,8 +643,8 @@ Otherwise notes the time the next flush will be due, and calls C<return flush();
 sub flush_if_due {
     my ($self) = @_;
     return unless $self->{flush_interval};
-    return if time() < $self->{flush_due_at_time};
-    $self->{flush_due_at_time} = time() + $self->{flush_interval};
+    return if dbi_time() < $self->{flush_due_at_time};
+    $self->{flush_due_at_time} = dbi_time() + $self->{flush_interval};
     return $self->flush();
 }
 
@@ -792,6 +826,21 @@ L</start_sample_period> was called) or 0 if there's no period active.
 
 sub period_start_time {
     return shift->{period_start_time};
+}
+
+
+=head2 period_count
+
+  $count = $core->period_count;
+
+Returns the number of completed sample periods since the last time
+L<reset_profile_data> was last called (or since the profile was created).
+See L<start_sample_period> for more information.
+
+=cut
+
+sub period_count {
+    return shift->{period_count};
 }
 
 

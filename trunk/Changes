@@ -20,10 +20,11 @@ disabled should set inuse so the check for disabled can be moved inside the 'alr
 
 =head2 DashProfiler 1.14 - XXX
 
-precondition code now gets arguments to function
-::Apache checks for $r->next
-Better mod_perl2 support, thanks to Jess Robinson.
-::Apache need work for mod_perl1 and 1
+  Precondition hooks now get passed args to original function.
+  DashProfiler::Apache works with $r->internal_redirect.
+
+  Better mod_perl2 support, thanks to Jess Robinson.
+  Added $core->period_count method.
 
 =head2 DashProfiler 1.13 - r50 - May 8th 2008
 

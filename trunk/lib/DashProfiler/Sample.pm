@@ -21,10 +21,11 @@ use strict;
 
 our $VERSION = sprintf("1.%06d", q$Revision$ =~ /(\d+)/o);
 
+use Carp;
 use DBI;
 use DBI::Profile qw(dbi_profile dbi_time);
+
 use constant DBI_GE_1603 => ($DBI::VERSION >= 2.603);
-use Carp;
 
 BEGIN {
     # use env var to control debugging at compile-time
